@@ -1,0 +1,158 @@
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.form-group label .required {
+  color: var(--error-color);
+  margin-left: 0.25rem;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: white;
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--secondary-color);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+}
+
+.form-group input.error {
+  border-color: var(--error-color);
+}
+
+.form-group input.error:focus {
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
+}
+
+.form-group input:disabled {
+  background-color: var(--background-color);
+  cursor: not-allowed;
+}
+
+.form-group input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.form-group input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.form-group input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+.error-message {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--error-color);
+  font-size: 0.875rem;
+}
+
+/* Placeholder styles */
+.form-group input::placeholder {
+  color: var(--text-light);
+  opacity: 0.7;
+}
+
+/* Focus within styles */
+.form-group:focus-within label {
+  color: var(--secondary-color);
+}
+
+/* Hover effects */
+.form-group input:hover:not(:disabled) {
+  border-color: var(--text-light);
+}
+
+/* Success state */
+.form-group.success input {
+  border-color: var(--success-color);
+}
+
+.form-group.success input:focus {
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.1);
+}
+
+/* Warning state */
+.form-group.warning input {
+  border-color: var(--warning-color);
+}
+
+.form-group.warning input:focus {
+  box-shadow: 0 0 0 2px rgba(241, 196, 15, 0.1);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group input {
+    padding: 0.625rem;
+    font-size: 0.9375rem;
+  }
+}
+
+/* Animation for error message */
+.error-message {
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Input types specific styles */
+.form-group input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.form-group input[type="number"]::-webkit-outer-spin-button,
+.form-group input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Required field indicator animation */
+.form-group label .required {
+  display: inline-block;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+} 

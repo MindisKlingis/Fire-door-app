@@ -1,0 +1,10 @@
+version: "2"
+authtoken: 2srpc0O4pEDi3VGF9zyD4kVatLG_7guxG3F84YbaJ8ghwSKjD
+web_addr: localhost:4040
+tunnels:
+  app:
+    proto: http
+    addr: 5001
+    inspect: true
+    schemes:
+      - https

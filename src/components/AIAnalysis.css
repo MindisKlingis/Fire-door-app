@@ -1,0 +1,181 @@
+.ai-analysis-container {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+}
+
+.analysis-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.analysis-header h3 {
+  margin: 0;
+  color: var(--primary-color);
+}
+
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.loading-spinner::before {
+  content: '';
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--secondary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.analysis-results {
+  padding: 1rem;
+  background-color: rgba(52, 152, 219, 0.05);
+  border-radius: var(--border-radius);
+}
+
+.analysis-results h4 {
+  margin-bottom: 1rem;
+  color: var(--primary-color);
+}
+
+.issues-found {
+  color: var(--text-color);
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.issues-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.issue-item {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background-color: white;
+  border-radius: var(--border-radius);
+  border-left: 4px solid;
+}
+
+.issue-item:last-child {
+  margin-bottom: 0;
+}
+
+.issue-item.critical {
+  border-left-color: var(--error-color);
+}
+
+.issue-item.warning {
+  border-left-color: var(--warning-color);
+}
+
+.issue-item.info {
+  border-left-color: var(--secondary-color);
+}
+
+.issue-severity {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  margin-right: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.issue-item.critical .issue-severity {
+  background-color: rgba(231, 76, 60, 0.1);
+  color: var(--error-color);
+}
+
+.issue-item.warning .issue-severity {
+  background-color: rgba(241, 196, 15, 0.1);
+  color: var(--warning-color);
+}
+
+.issue-item.info .issue-severity {
+  background-color: rgba(52, 152, 219, 0.1);
+  color: var(--secondary-color);
+}
+
+.issue-description {
+  display: block;
+  margin: 0.5rem 0;
+  color: var(--text-color);
+}
+
+.issue-recommendation {
+  margin: 0.5rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.no-issues {
+  color: var(--success-color);
+  text-align: center;
+  padding: 1rem;
+  background-color: rgba(46, 204, 113, 0.1);
+  border-radius: var(--border-radius);
+}
+
+.confidence-score {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-light);
+  font-size: 0.875rem;
+  text-align: right;
+}
+
+.analysis-error {
+  padding: 1rem;
+  background-color: rgba(231, 76, 60, 0.1);
+  color: var(--error-color);
+  border-radius: var(--border-radius);
+  text-align: center;
+}
+
+/* Animation for results */
+.analysis-results {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .ai-analysis-container {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+
+  .issue-item {
+    padding: 0.75rem;
+  }
+
+  .confidence-score {
+    text-align: left;
+  }
+} 

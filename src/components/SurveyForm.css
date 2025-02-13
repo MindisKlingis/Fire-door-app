@@ -1,0 +1,161 @@
+.survey-form {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+}
+
+.survey-form h2 {
+  color: var(--primary-color);
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.form-group label .required {
+  color: var(--error-color);
+  margin-left: 0.25rem;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  border-color: var(--secondary-color);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+}
+
+.form-group.error input,
+.form-group.error textarea,
+.form-group.error select {
+  border-color: var(--error-color);
+}
+
+.error-message {
+  color: var(--error-color);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.submit-button {
+  width: 100%;
+  padding: 1rem;
+  background-color: var(--secondary-color);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 2rem;
+}
+
+.submit-button:hover {
+  background-color: #2980b9;
+}
+
+.submit-button:disabled {
+  background-color: var(--text-light);
+  cursor: not-allowed;
+}
+
+.submit-error {
+  text-align: center;
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: rgba(231, 76, 60, 0.1);
+  border-radius: var(--border-radius);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .survey-form {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .submit-button {
+    padding: 0.875rem;
+    font-size: 1rem;
+  }
+}
+
+/* Location field styles */
+.location-field {
+  display: flex;
+  gap: 1rem;
+}
+
+.location-field .coordinates {
+  flex: 1;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.location-field .coordinates input {
+  width: 50%;
+}
+
+/* Photo upload section styles */
+.photo-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Conditional fields */
+.conditional-fields {
+  padding: 1rem;
+  margin: 1rem 0;
+  background-color: rgba(52, 152, 219, 0.05);
+  border-radius: var(--border-radius);
+  border-left: 4px solid var(--secondary-color);
+}
+
+/* Animation for conditional fields */
+.conditional-fields {
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+} 
