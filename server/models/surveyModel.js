@@ -1,62 +1,44 @@
 const mongoose = require('mongoose');
 
 const surveySchema = new mongoose.Schema({
-  doorId: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  location: {
-    text: {
-      type: String,
-      required: true
-    },
-    coordinates: {
-      latitude: Number,
-      longitude: Number
-    }
-  },
-  fireResistanceRating: {
-    type: String,
-    required: true,
-    enum: ['FD30', 'FD30s', 'FD60', 'FD60s']
-  },
-  complianceStatus: {
-    type: String,
-    required: true,
-    enum: ['Compliant', 'Non-compliant']
-  },
-  inspectionDate: {
-    type: Date,
-    required: true,
-    default: Date.now
-  },
-  conditionDetails: {
+  doorNumber: {
     type: String,
     required: true
   },
-  inspectorName: {
+  floor: String,
+  room: String,
+  locationOfDoorSet: {
     type: String,
-    default: 'Anonymous'
+    required: true
   },
-  followUpActions: {
-    type: String,
-    required: function() {
-      return this.complianceStatus === 'Non-compliant';
-    }
-  },
+  doorType: String,
+  doorConfiguration: String,
+  doorMaterial: String,
+  rating: String,
+  surveyed: String,
+  leafGap: String,
+  thresholdGap: String,
+  combinedStripsCondition: String,
+  selfCloserFunctional: String,
+  hingesCondition: String,
+  glazingSufficient: String,
+  fanLightsSufficient: String,
+  upgradeReplacement: String,
+  overallCondition: String,
+  notes: String,
   photos: [{
     url: String,
+    type: String,
     aiAnalysis: {
-      status: {
-        type: String,
-        enum: ['pending', 'completed', 'failed'],
-        default: 'pending'
-      },
-      results: Object,
+      status: String,
+      results: mongoose.Schema.Types.Mixed,
       completedAt: Date
     }
   }],
+  drawing: {
+    url: String,
+    uploadedAt: Date
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -73,4 +55,17 @@ surveySchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('Survey', surveySchema); 
+const Survey = mongoose.model('Survey', surveySchema);
+
+// Drop the problematic index when the model is created
+mongoose.connection.on('connected', async () => {
+  try {
+    await mongoose.connection.db.collection('surveys').dropIndex('doorId_1');
+    console.log('Successfully dropped doorId_1 index');
+  } catch (error) {
+    // Index might not exist, which is fine
+    console.log('Note: doorId_1 index not found or already dropped');
+  }
+});
+
+module.exports = Survey; 

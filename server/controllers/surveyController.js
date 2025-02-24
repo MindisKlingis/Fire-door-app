@@ -2,35 +2,29 @@ const Survey = require('../models/surveyModel');
 const imageAnalysisService = require('../services/imageAnalysisService');
 
 // Create a new survey
-exports.createSurvey = async (req, res) => {
+const createSurvey = async (req, res) => {
   try {
     // Create a new survey document
     const surveyData = {
-      doorId: `DOOR-${Date.now()}`,
-      location: {
-        text: req.body.locationOfDoorSet
-      },
-      fireResistanceRating: req.body.rating,
+      doorNumber: req.body.doorNumber || req.body.doorPinNo,
+      floor: req.body.floor,
+      room: req.body.room,
+      locationOfDoorSet: req.body.locationOfDoorSet,
       doorType: req.body.doorType,
+      doorConfiguration: req.body.doorConfiguration || '',
+      doorMaterial: req.body.doorMaterial || '',
+      rating: req.body.rating,
       surveyed: req.body.surveyed,
+      leafGap: req.body.leafGap,
+      thresholdGap: req.body.thresholdGap,
+      combinedStripsCondition: req.body.combinedStripsCondition,
+      selfCloserFunctional: req.body.selfCloserFunctional,
+      hingesCondition: req.body.hingesCondition,
+      glazingSufficient: req.body.glazingSufficient,
+      fanLightsSufficient: req.body.fanLightsSufficient,
       upgradeReplacement: req.body.upgradeReplacement,
       overallCondition: req.body.overallCondition,
-      room: req.body.room,
-      floor: req.body.floor,
-      complianceStatus: req.body.overallCondition === 'Poor' ? 'Non-compliant' : 'Compliant',
-      inspectionDate: new Date(),
-      conditionDetails: JSON.stringify({
-        leafGap: req.body.leafGap,
-        thresholdGap: req.body.thresholdGap,
-        combinedStripsCondition: req.body.combinedStripsCondition,
-        selfCloserFunctional: req.body.selfCloserFunctional,
-        hingesCondition: req.body.hingesCondition,
-        glazingSufficient: req.body.glazingSufficient,
-        fanLightsSufficient: req.body.fanLightsSufficient,
-        notes: req.body.notes
-      }),
-      inspectorName: 'Anonymous',
-      photos: []
+      notes: req.body.notes
     };
 
     console.log('Received data:', req.body);
@@ -59,17 +53,19 @@ exports.createSurvey = async (req, res) => {
 };
 
 // Get all surveys
-exports.getAllSurveys = async (req, res) => {
+const getAllSurveys = async (req, res) => {
   try {
-    const surveys = await Survey.find().sort({ createdAt: -1 });
+    const surveys = await Survey.find({})
+      .sort('-createdAt');
     res.json(surveys);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching surveys:', error);
+    res.status(500).json({ message: 'Error fetching surveys' });
   }
 };
 
 // Get a single survey by ID
-exports.getSurveyById = async (req, res) => {
+const getSurveyById = async (req, res) => {
   try {
     const survey = await Survey.findById(req.params.id);
     if (!survey) {
@@ -82,7 +78,7 @@ exports.getSurveyById = async (req, res) => {
 };
 
 // Update a survey
-exports.updateSurvey = async (req, res) => {
+const updateSurvey = async (req, res) => {
   try {
     const survey = await Survey.findById(req.params.id);
     if (!survey) {
@@ -98,14 +94,14 @@ exports.updateSurvey = async (req, res) => {
 };
 
 // Delete a survey
-exports.deleteSurvey = async (req, res) => {
+const deleteSurvey = async (req, res) => {
   try {
     const survey = await Survey.findById(req.params.id);
     if (!survey) {
       return res.status(404).json({ message: 'Survey not found' });
     }
     
-    await survey.remove();
+    await survey.deleteOne();
     res.json({ message: 'Survey deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -113,7 +109,7 @@ exports.deleteSurvey = async (req, res) => {
 };
 
 // Add photos to a survey
-exports.addPhotos = async (req, res) => {
+const addPhotos = async (req, res) => {
   try {
     const survey = await Survey.findById(req.params.id);
     if (!survey) {
@@ -127,6 +123,7 @@ exports.addPhotos = async (req, res) => {
       
       return {
         url: file.path,
+        type: file.originalname,
         aiAnalysis: {
           status: analysisResult.success ? 'completed' : 'failed',
           results: analysisResult.measurements || null,
@@ -137,32 +134,6 @@ exports.addPhotos = async (req, res) => {
 
     const processedPhotos = await Promise.all(photoPromises);
     survey.photos.push(...processedPhotos);
-
-    // Update survey measurements if AI analysis was successful
-    const successfulAnalyses = processedPhotos
-      .filter(photo => photo.aiAnalysis.status === 'completed' && photo.aiAnalysis.results)
-      .map(photo => photo.aiAnalysis.results);
-
-    if (successfulAnalyses.length > 0) {
-      // Calculate average measurements from all successful analyses
-      const avgMeasurements = successfulAnalyses.reduce((acc, curr) => ({
-        leafGap: (acc.leafGap || 0) + (curr.leafGap || 0),
-        thresholdGap: (acc.thresholdGap || 0) + (curr.thresholdGap || 0),
-        confidence: (acc.confidence || 0) + (curr.confidence || 0)
-      }), {});
-
-      const numAnalyses = successfulAnalyses.length;
-      const updatedData = {
-        leafGap: Math.round(avgMeasurements.leafGap / numAnalyses).toString(),
-        thresholdGap: Math.round(avgMeasurements.thresholdGap / numAnalyses).toString()
-      };
-
-      // Update the condition details with AI measurements
-      const conditionDetails = JSON.parse(survey.conditionDetails);
-      Object.assign(conditionDetails, updatedData);
-      survey.conditionDetails = JSON.stringify(conditionDetails);
-    }
-
     await survey.save();
 
     res.json({
@@ -180,7 +151,7 @@ exports.addPhotos = async (req, res) => {
 };
 
 // Update AI analysis results for a photo
-exports.updatePhotoAnalysis = async (req, res) => {
+const updatePhotoAnalysis = async (req, res) => {
   try {
     const { surveyId, photoIndex } = req.params;
     const { results } = req.body;
@@ -201,4 +172,45 @@ exports.updatePhotoAnalysis = async (req, res) => {
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
+};
+
+const clearSurveys = async (req, res) => {
+    try {
+        console.log('Attempting to clear all surveys...');
+        const result = await Survey.deleteMany({});
+        console.log('Clear surveys result:', result);
+        
+        if (result.acknowledged) {
+            console.log(`Successfully deleted ${result.deletedCount} surveys`);
+            res.status(200).json({ 
+                success: true,
+                message: 'All surveys cleared successfully',
+                deletedCount: result.deletedCount 
+            });
+        } else {
+            console.error('Delete operation was not acknowledged by MongoDB');
+            res.status(500).json({ 
+                success: false,
+                message: 'Failed to clear surveys - operation not acknowledged'
+            });
+        }
+    } catch (error) {
+        console.error('Error clearing surveys:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to clear surveys',
+            error: error.message 
+        });
+    }
+};
+
+module.exports = {
+  createSurvey,
+  getAllSurveys,
+  getSurveyById,
+  updateSurvey,
+  deleteSurvey,
+  addPhotos,
+  updatePhotoAnalysis,
+  clearSurveys
 }; 

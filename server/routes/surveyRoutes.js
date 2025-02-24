@@ -35,6 +35,7 @@ const upload = multer({
 // Survey routes
 router.post('/', surveyController.createSurvey);
 router.get('/', surveyController.getAllSurveys);
+router.delete('/clear', surveyController.clearSurveys);
 router.get('/:id', surveyController.getSurveyById);
 router.put('/:id', surveyController.updateSurvey);
 router.delete('/:id', surveyController.deleteSurvey);

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import './AISurveyPage.css';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 const AISurveyPage = () => {
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState(null);
@@ -78,9 +80,9 @@ const AISurveyPage = () => {
     formData.append('photo', selectedFile);
 
     try {
-      const response = await fetch('http://localhost:5001/api/analyze-door', {
+      const response = await fetch(`${API_URL}/api/analyze-door`, {
         method: 'POST',
-        body: formData,
+        body: formData
       });
 
       const data = await response.json();

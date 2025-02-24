@@ -1,37 +1,53 @@
 {
   "name": "fire-door-survey-app",
   "version": "1.0.0",
+  "private": true,
   "description": "A Fire Door Survey Application with AI capabilities",
   "main": "server/server.js",
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "react-native start",
+    "start-web": "react-scripts start",
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "test": "jest",
     "eject": "react-scripts eject",
     "server": "nodemon server/server.js",
-    "dev": "concurrently \"npm run server\" \"npm run start\""
+    "dev": "concurrently \"npm run server\" \"npm run start-web\""
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "1.19.3",
+    "@react-native-picker/picker": "2.4.10",
     "@testing-library/jest-dom": "^6.1.4",
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.5.1",
-    "axios": "^1.6.7",
+    "ajv": "^8.17.1",
+    "axios": "^1.6.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "express": "^4.18.2",
+    "fs": "^0.0.1-security",
     "mongoose": "^8.1.1",
     "multer": "^1.4.5-lts.1",
-    "openai": "^4.83.0",
-    "react": "^18.2.0",
+    "openai": "^4.85.0",
+    "react": "18.2.0",
     "react-dom": "^18.2.0",
+    "react-native": "0.72.6",
+    "react-native-image-picker": "7.0.0",
+    "react-native-vector-icons": "^10.0.0",
+    "react-refresh": "^0.16.0",
     "react-router-dom": "^6.22.0",
     "react-scripts": "^5.0.1",
     "web-vitals": "^3.5.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@babel/core": "^7.20.0",
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/preset-env": "^7.20.0",
+    "@babel/runtime": "^7.20.0",
+    "@react-native/metro-config": "^0.72.11",
     "concurrently": "^8.2.2",
+    "metro-react-native-babel-preset": "0.76.8",
     "nodemon": "^3.0.3"
   },
   "eslintConfig": {
@@ -55,5 +71,8 @@
   "overrides": {
     "nth-check": "^2.0.1",
     "postcss": "^8.4.31"
+  },
+  "engines": {
+    "node": ">=16.20.1"
   }
 }

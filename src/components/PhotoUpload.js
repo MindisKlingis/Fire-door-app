@@ -3,33 +3,12 @@ import './PhotoUpload.css';
 
 const API_BASE_URL = 'http://localhost:5001';
 
-const PhotoUpload = ({ onUpload, photoTypes, uploadedPhotos, isSurveySaved, surveyId }) => {
+const PhotoUpload = ({ onUpload, isSurveySaved, surveyId }) => {
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-
-  // Create individual refs for each photo type
-  const frontDoorRef = useRef(null);
-  const topLeafRef = useRef(null);
-  const topLeafDoubleRef = useRef(null);
-  const strips1Ref = useRef(null);
-  const strips2Ref = useRef(null);
-  const faults3Ref = useRef(null);
-  const faults4Ref = useRef(null);
-  const faults5Ref = useRef(null);
-
-  // Map photo types to their corresponding refs
-  const fileInputRefs = {
-    [photoTypes.FRONT_DOOR]: frontDoorRef,
-    [photoTypes.TOP_LEAF]: topLeafRef,
-    [photoTypes.TOP_LEAF_DOUBLE]: topLeafDoubleRef,
-    [photoTypes.STRIPS_1]: strips1Ref,
-    [photoTypes.STRIPS_2]: strips2Ref,
-    [photoTypes.FAULTS_3]: faults3Ref,
-    [photoTypes.FAULTS_4]: faults4Ref,
-    [photoTypes.FAULTS_5]: faults5Ref
-  };
+  const fileInputRef = useRef(null);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -52,17 +31,20 @@ const PhotoUpload = ({ onUpload, photoTypes, uploadedPhotos, isSurveySaved, surv
     return null;
   };
 
-  const handleFiles = async (files, photoType = null) => {
-    if (!isSurveySaved) {
-      setError('Please save the survey before uploading photos');
-      return;
-    }
+  const simulateProgress = () => {
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.random() * 30;
+      if (progress > 90) {
+        clearInterval(interval);
+        return;
+      }
+      setUploadProgress(Math.min(progress, 90));
+    }, 500);
+    return interval;
+  };
 
-    if (!surveyId) {
-      setError('Survey ID is required for photo upload');
-      return;
-    }
-
+  const handleFiles = async (files) => {
     setError(null);
     setUploading(true);
     setUploadProgress(0);
@@ -76,15 +58,27 @@ const PhotoUpload = ({ onUpload, photoTypes, uploadedPhotos, isSurveySaved, surv
       return;
     }
 
+    const progressInterval = simulateProgress();
+
     try {
+      // Store the file temporarily if no surveyId exists
+      if (!surveyId) {
+        const fileUrl = URL.createObjectURL(file);
+        onUpload(file.name, file);
+        setUploadProgress(100);
+        return;
+      }
+
       const formData = new FormData();
       formData.append('photos', file);
-      formData.append('photoType', photoType || file.name);
+      formData.append('photoType', file.name);
 
-      const response = await fetch(`http://localhost:5001/api/surveys/${surveyId}/photos`, {
+      const response = await fetch(`${API_BASE_URL}/api/surveys/${surveyId}/photos`, {
         method: 'POST',
         body: formData,
       });
+
+      clearInterval(progressInterval);
 
       if (!response.ok) {
         throw new Error(`Upload failed: ${response.statusText}`);
@@ -96,12 +90,13 @@ const PhotoUpload = ({ onUpload, photoTypes, uploadedPhotos, isSurveySaved, surv
       }
 
       setUploadProgress(100);
-      onUpload(photoType || file.name, file);
+      onUpload(file.name, file);
     } catch (error) {
       console.error('Upload error:', error);
       setError(error.message || 'Failed to upload photo');
     } finally {
       setUploading(false);
+      clearInterval(progressInterval);
     }
   };
 
@@ -115,34 +110,20 @@ const PhotoUpload = ({ onUpload, photoTypes, uploadedPhotos, isSurveySaved, surv
     }
   };
 
-  const handleChange = (e, photoType) => {
-    e.preventDefault();
+  const handleButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      handleFiles(e.target.files, photoType);
+      handleFiles(e.target.files);
     }
-  };
-
-  const triggerFileInput = (photoType) => {
-    fileInputRefs[photoType]?.current?.click();
-  };
-
-  const getPhotoTypeLabel = (type) => {
-    return type
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, str => str.toUpperCase())
-      .trim();
   };
 
   return (
     <div className="photo-upload-container">
       <h3>Photos</h3>
       
-      {!isSurveySaved && (
-        <div className="info-message">
-          Please save the survey before uploading photos
-        </div>
-      )}
-
       {error && (
         <div className="error-message">
           {error.split('\n').map((err, index) => (
@@ -152,109 +133,34 @@ const PhotoUpload = ({ onUpload, photoTypes, uploadedPhotos, isSurveySaved, surv
       )}
 
       <div className="photo-sections">
-        {/* Front Door Photos */}
-        <div className="photo-section">
-          <h4>Door Photos</h4>
-          <div className="photo-grid">
-            {[photoTypes.FRONT_DOOR, photoTypes.TOP_LEAF, photoTypes.TOP_LEAF_DOUBLE].map((type) => (
-              <div key={type} className="photo-upload-item">
-                <input
-                  type="file"
-                  ref={fileInputRefs[type]}
-                  onChange={(e) => handleChange(e, type)}
-                  accept="image/jpeg,image/png,image/gif"
-                  style={{ display: 'none' }}
-                  disabled={!isSurveySaved}
-                />
-                <button
-                  type="button"
-                  className="photo-upload-button"
-                  onClick={() => triggerFileInput(type)}
-                  disabled={!isSurveySaved}
-                >
-                  <span className="upload-icon">📸</span>
-                  <span className="upload-label">{getPhotoTypeLabel(type)}</span>
-                  {uploadedPhotos[type] && <span className="upload-success">✓</span>}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Strips Photos */}
-        <div className="photo-section">
-          <h4>Strips Photos</h4>
-          <div className="photo-grid">
-            {[photoTypes.STRIPS_1, photoTypes.STRIPS_2].map((type) => (
-              <div key={type} className="photo-upload-item">
-                <input
-                  type="file"
-                  ref={fileInputRefs[type]}
-                  onChange={(e) => handleChange(e, type)}
-                  accept="image/jpeg,image/png,image/gif"
-                  style={{ display: 'none' }}
-                  disabled={!isSurveySaved}
-                />
-                <button
-                  type="button"
-                  className="photo-upload-button"
-                  onClick={() => triggerFileInput(type)}
-                  disabled={!isSurveySaved}
-                >
-                  <span className="upload-icon">📸</span>
-                  <span className="upload-label">{getPhotoTypeLabel(type)}</span>
-                  {uploadedPhotos[type] && <span className="upload-success">✓</span>}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Additional Faults Photos */}
-        <div className="photo-section">
-          <h4>Additional Faults</h4>
-          <div className="photo-grid">
-            {[photoTypes.FAULTS_3, photoTypes.FAULTS_4, photoTypes.FAULTS_5].map((type) => (
-              <div key={type} className="photo-upload-item">
-                <input
-                  type="file"
-                  ref={fileInputRefs[type]}
-                  onChange={(e) => handleChange(e, type)}
-                  accept="image/jpeg,image/png,image/gif"
-                  style={{ display: 'none' }}
-                  disabled={!isSurveySaved}
-                />
-                <button
-                  type="button"
-                  className="photo-upload-button"
-                  onClick={() => triggerFileInput(type)}
-                  disabled={!isSurveySaved}
-                >
-                  <span className="upload-icon">📸</span>
-                  <span className="upload-label">{getPhotoTypeLabel(type)}</span>
-                  {uploadedPhotos[type] && <span className="upload-success">✓</span>}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Drag & Drop Area */}
         <div
           className={`upload-area ${dragActive ? 'drag-active' : ''}`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
+          onClick={handleButtonClick}
         >
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="file-input"
+            accept="image/jpeg,image/jpg,image/png,image/gif"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+          
           <div className="upload-message">
             {uploading ? (
               <>
-                <p>Uploading...</p>
+                <p>
+                  <span className="upload-icon">📤</span>
+                  Uploading...
+                </p>
                 {uploadProgress > 0 && (
                   <div className="upload-progress">
                     <div 
-                      className="upload-progress-bar"
+                      className="progress-bar"
                       style={{ width: `${uploadProgress}%` }}
                     />
                   </div>
@@ -262,7 +168,10 @@ const PhotoUpload = ({ onUpload, photoTypes, uploadedPhotos, isSurveySaved, surv
               </>
             ) : (
               <>
-                <p>Drag and drop additional photos here</p>
+                <p>
+                  <span className="upload-icon">📸</span>
+                  Drag and drop photos here or click to browse
+                </p>
                 <p className="upload-hint">Supports: JPG, PNG, GIF (max 5MB each)</p>
               </>
             )}

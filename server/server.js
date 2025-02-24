@@ -12,19 +12,29 @@ const app = express();
 
 // CORS configuration
 const corsOptions = {
-  origin: '*',  // Allow all origins
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Accept'],
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://localhost:3003',
+    'http://192.168.0.80:3000',
+    'http://192.168.0.80:3001',
+    'http://192.168.0.80:3002'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Accept', 'Origin', 'X-Requested-With', 'Authorization'],
   credentials: true,
-  exposedHeaders: ['Access-Control-Allow-Origin'],
+  optionsSuccessStatus: 204,
+  preflightContinue: false
 };
 
-// Middleware
+// Apply CORS middleware
 app.use(cors(corsOptions));
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  next();
-});
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
+
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -48,10 +58,12 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/fire-door
 // Import routes
 const surveyRoutes = require('./routes/surveyRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 // Use routes
 app.use('/api/surveys', surveyRoutes);
 app.use('/api', aiRoutes);
+app.use('/api/auth', authRoutes);
 
 // Ensure uploads directory exists
 if (!fs.existsSync('uploads')) {
@@ -67,5 +79,5 @@ const PORT = process.env.PORT || 5001;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
-  console.log(`Server is accessible at http://192.168.8.183:${PORT}`);
+  console.log(`Server is accessible at http://localhost:${PORT}`);
 }); 

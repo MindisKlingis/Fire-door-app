@@ -1,0 +1,67 @@
+---
+description:  project-specific rules that can help the AI Claude 3.5 Sonnet understand our entire codebase—and ensure that it follows project conversations encompassing both backend server logic and frontend UI functionality. These rules capture our coding conventions, architectural decisions, and integration guidelines
+globs: 
+---
+Modular Architecture:
+
+Organize the codebase into clear, distinct modules.
+Frontend components (e.g., FireDoorSurvey, DataValidation, ComplianceChecks) should be isolated from backend logic.
+The backend should expose well-defined APIs that the frontend consumes.
+Consistent Naming Conventions:
+
+Follow established naming patterns for components, variables, functions, and files as demonstrated in the provided files (e.g., FireDoorSurvey.jsx, App.jsx, etc.).
+Ensure that identifiers are descriptive and consistent across both frontend and backend.
+Separation of Concerns:
+
+Frontend code handles user interactions, UI rendering, form validations, and state management.
+The backend is responsible for data processing, persistent storage, and enforcing business logic (e.g., additional data validation and compliance rules).
+Any overlap (such as data validation) should be clearly demarcated so that both layers work in harmony without duplication of responsibilities.
+Data Flow and State Management:
+
+Ensure clear data flow from user inputs (in React components) to API calls on the backend.
+Frontend components should manage state using hooks (or an equivalent state management solution) and relay validated data to the backend.
+Both DataValidation.jsx and ComplianceChecks.jsx provide real‑time feedback on the form; similar checks must be mirrored on the server side for security.
+UI/UX Consistency:
+
+The visual and interactive design should adhere to the provided CSS and component structure.
+For mobile or cross‑platform applications (e.g., using React Native), maintain visual consistency while adapting interaction patterns to native touch interfaces.
+Replace web hover effects with touch feedback and animations that feel natural on iOS and Android.
+Error Handling and Data Validation:
+
+Implement robust error handling on both the frontend and backend.
+The frontend’s data validation (as seen in DataValidation.jsx) must be complemented by server-side validation to ensure data integrity and security.
+Clearly communicate error messages to users and log issues appropriately for debugging.
+Security and Compliance:
+
+Follow best practices for secure coding in both layers.
+The ComplianceChecks component on the frontend should reflect the compliance requirements that are enforced server‑side (e.g., inspection deadlines, condition assessments).
+Sensitive data should be handled securely throughout the system.
+API Integration and Communication:
+
+The frontend communicates with the backend via RESTful (or GraphQL) API endpoints.
+Ensure that data exchanged between layers is well-structured and adheres to agreed-upon contracts.
+Any modifications in the API should be documented and synchronized across the project.
+Testing and Quality Assurance:
+
+Write unit tests for both frontend components and backend logic.
+Implement integration tests to validate the end‑to‑end flow (from UI input to backend response).
+Use automated testing where possible to catch discrepancies early.
+Documentation and Code Comments:
+
+Maintain clear and up‑to‑date documentation that explains the purpose, structure, and integration points of each module.
+Use inline comments to clarify complex logic, both in UI components and backend functions.
+Documentation should cover both technical and business logic aspects of the application.
+Version Control and Review Process:
+
+Use version control (e.g., Git) with clear commit messages and branch structures.
+Follow code review best practices to ensure consistency, quality, and that any changes in one layer (frontend or backend) are aligned with the overall project goals.
+Deployment and Environment Management:
+
+Understand the different environments (development, staging, production) and ensure that both frontend and backend configurations are appropriately managed.
+Consider platform-specific configurations for mobile deployments if adapting to React Native.
+
+
+# Your rule content
+
+- You can @ files here
+- You can use markdown but dont have to
