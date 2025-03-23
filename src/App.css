@@ -112,7 +112,9 @@ main {
 }
 
 .start-survey-button,
-.ai-survey-button {
+.ai-survey-button,
+.architecture-button,
+.design-test-button {
   display: inline-block;
   padding: 1rem 2rem;
   font-size: clamp(1rem, 3.5vw, 1.125rem);
@@ -121,6 +123,7 @@ main {
   border-radius: var(--border-radius);
   transition: all 0.2s ease;
   width: 100%;
+  text-align: center;
 }
 
 .start-survey-button {
@@ -133,8 +136,20 @@ main {
   color: white;
 }
 
+.architecture-button {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.design-test-button {
+  background-color: #9c27b0;
+  color: white;
+}
+
 .start-survey-button:hover,
-.ai-survey-button:hover {
+.ai-survey-button:hover,
+.architecture-button:hover,
+.design-test-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }

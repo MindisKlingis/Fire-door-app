@@ -4,6 +4,10 @@ import * as XLSX from 'xlsx';
 import PhotoUpload from './PhotoUpload';
 import './FireDoorSurveyForm.css';
 import axios from 'axios';
+import SurveyTracker from './SurveyTracker';
+import ExcelJS from 'exceljs';
+import RoomTypeSelector from './RoomTypeSelector';
+import LocationSelector from './LocationSelector';
 
 const API_BASE_URL = 'http://localhost:5001';
 
@@ -16,10 +20,12 @@ const PHOTO_TYPES = {
   FAULTS_5: 'unmentionedFaults5'
 };
 
+const commonThicknessValues = ['44', '54', '58'];
+
 const FireDoorSurveyForm = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    doorPinNo: 0,
+    doorPinNo: 1,
     floor: '',
     room: '',
     locationOfDoorSet: '',
@@ -27,14 +33,22 @@ const FireDoorSurveyForm = () => {
     doorConfiguration: {
       type: '',
       hasFanLight: false,
-      hasSidePanels: false
+      hasSidePanels: false,
+      hasVPPanel: false  // Add new state for VP Panel
     },
     doorMaterial: {
       type: '',
       customType: ''
     },
     rating: 'FD30s',
+    thirdPartyCertification: {
+      type: '',
+      customText: '',
+      photo: null,
+      photoUrl: null
+    },
     surveyed: '',
+    isFlagged: false,
     leafGap: '',
     thresholdGap: '',
     showExtendedThresholdGap: false,
@@ -102,7 +116,8 @@ const FireDoorSurveyForm = () => {
       customSection: null
     },
     combinedStripsPhoto: null,
-    combinedStripsPhotoUrl: null
+    combinedStripsPhotoUrl: null,
+    roomType: ''
   });
   const [surveyId, setSurveyId] = useState(null);
   const [isSurveySaved, setIsSurveySaved] = useState(false);
@@ -117,6 +132,11 @@ const FireDoorSurveyForm = () => {
   const [error, setError] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [currentNotificationIndex, setCurrentNotificationIndex] = useState(0);
+  const [allSurveys, setAllSurveys] = useState([]);
+  const [currentDoor, setCurrentDoor] = useState(1);
+  const [surveyedDoorsList, setSurveyedDoorsList] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showMeasurements, setShowMeasurements] = useState(false);
 
   useEffect(() => {
     const savedNotifications = localStorage.getItem('doorNotifications');
@@ -125,16 +145,29 @@ const FireDoorSurveyForm = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const fetchSurveys = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/surveys`);
+        const surveys = response.data;
+        setAllSurveys(surveys);
+        // Extract surveyed door numbers
+        const doorNumbers = surveys.map(survey => survey.doorNumber);
+        setSurveyedDoorsList(doorNumbers);
+      } catch (error) {
+        console.error('Error fetching surveys:', error);
+        setError('Failed to fetch surveys');
+      }
+    };
+
+    fetchSurveys();
+  }, []);
+
   const validateField = (field, value, section = null) => {
     let error = '';
     const fieldValue = section ? value[field] : value;
 
     switch (field) {
-      case 'locationOfDoorSet':
-        if (!fieldValue?.trim()) {
-          error = 'Location of Door Set is required';
-        }
-        break;
       case 'rating':
         if (!fieldValue) {
           error = 'Fire Resistance Rating is required';
@@ -237,22 +270,37 @@ const FireDoorSurveyForm = () => {
   };
 
   const handleInputChange = (field, value, section = null) => {
+    setError('');
     if (section) {
       setFormData(prev => ({
         ...prev,
-        [section]: { ...prev[section], [field]: value }
+        [section]: {
+          ...prev[section],
+          [field]: value
+        }
       }));
     } else {
-      setFormData(prev => ({ ...prev, [field]: value }));
+      // Special handling for rating changes
+      if (field === 'rating') {
+        const isNonFireRated = ['Not Fire-Rated', 'Notional', 'Nominal'].includes(value);
+        setFormData(prev => ({
+          ...prev,
+          [field]: value,
+          // Automatically set Third Party Certification for non-fire-rated doors
+          thirdPartyCertification: {
+            ...prev.thirdPartyCertification,
+            type: isNonFireRated ? 'na' : prev.thirdPartyCertification.type,
+            customText: isNonFireRated ? '' : prev.thirdPartyCertification.customText
+          }
+        }));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          [field]: value
+        }));
+      }
     }
-
-    const error = validateField(field, value, section);
-    setValidationErrors(prev => ({
-      ...prev,
-      [field]: error
-    }));
-
-    setError('');
+    validateField(field, value, section);
   };
 
   const handleOptionClick = (field, value) => {
@@ -343,7 +391,7 @@ const FireDoorSurveyForm = () => {
     
     if (value === 'N') {
       const newNotification = {
-        doorNumber: formData.doorPinNo || 0,
+        doorNumber: formData.doorPinNo || 1,
         location: formData.locationOfDoorSet || 'Unknown location',
         floor: formData.floor || '',
         room: formData.room || '',
@@ -360,44 +408,260 @@ const FireDoorSurveyForm = () => {
 
   const validateForm = () => {
     const errors = {};
+    console.log('Starting form validation...');
     
     // Validate required fields
     if (!formData.doorPinNo) {
+      console.log('Door Number missing');
       errors.doorPinNo = 'Door Number is required';
     }
     
-    if (!formData.locationOfDoorSet?.trim()) {
-      errors.locationOfDoorSet = 'Location of Door Set is required';
-    }
-    
     if (!formData.doorType) {
+      console.log('Door Type missing');
       errors.doorType = 'Door Type is required';
     }
     
     if (!formData.rating) {
+      console.log('Rating missing');
       errors.rating = 'Fire Rating is required';
     }
     
     if (!formData.surveyed) {
+      console.log('Surveyed field missing');
       errors.surveyed = 'Surveyed field is required';
+    }
+
+    if (!formData.upgradeReplacement) {
+      console.log('Upgrade/Replacement field missing');
+      errors.upgradeReplacement = 'Upgrade/Replacement field is required';
+    }
+
+    if (!formData.overallCondition) {
+      console.log('Overall Condition missing');
+      errors.overallCondition = 'Overall Condition is required';
     }
     
     // Update validation errors state
+    console.log('Validation errors:', errors);
     setValidationErrors(errors);
     
     // Return true if no errors
     return Object.keys(errors).length === 0;
   };
 
+  const loadSurveyData = async (doorNumber) => {
+    try {
+      // Find the survey in allSurveys array
+      const survey = allSurveys.find(s => s.doorNumber === doorNumber.toString());
+      
+      if (survey) {
+        setIsEditing(true);
+        setSurveyId(survey._id);
+        
+        // Update form data with survey data
+        setFormData({
+          ...formData,
+          doorPinNo: parseInt(survey.doorNumber),
+          floor: survey.floor || '',
+          room: survey.room || '',
+          locationOfDoorSet: survey.locationOfDoorSet || '',
+          doorType: survey.doorType || '',
+          rating: survey.rating || 'FD30s',
+          thirdPartyCertification: {
+            ...formData.thirdPartyCertification,
+            type: survey.thirdPartyCertification?.type || '',
+            customText: survey.thirdPartyCertification?.customText || '',
+            photo: survey.thirdPartyCertification?.photo || null,
+            photoUrl: survey.thirdPartyCertification?.photoUrl || null
+          },
+          surveyed: survey.surveyed || '',
+          leafGap: survey.leafGap || '',
+          thresholdGap: survey.thresholdGap || '',
+          combinedStripsCondition: survey.combinedStripsCondition || '',
+          selfCloserFunctional: survey.selfCloserFunctional || '',
+          hingesCondition: survey.hingesCondition || '',
+          glazingSufficient: survey.glazingSufficient || '',
+          fanLightsSufficient: survey.fanLightsSufficient || '',
+          upgradeReplacement: survey.upgradeReplacement || '',
+          overallCondition: survey.overallCondition || '',
+          conditionDetails: {
+            ...formData.conditionDetails,
+            notes: survey.notes || ''
+          }
+        });
+
+        setError('Survey loaded for editing');
+      } else {
+        setIsEditing(false);
+        setSurveyId(null);
+        // Reset form for new survey
+        setFormData(prevData => ({
+          ...prevData,
+          doorPinNo: doorNumber,
+          floor: '',
+          room: '',
+          locationOfDoorSet: '',
+          doorType: '',
+          rating: 'FD30s',
+          thirdPartyCertification: {
+            type: '',
+            customText: '',
+            photo: null,
+            photoUrl: null
+          },
+          surveyed: '',
+          leafGap: '',
+          thresholdGap: '',
+          combinedStripsCondition: '',
+          selfCloserFunctional: '',
+          hingesCondition: '',
+          glazingSufficient: '',
+          fanLightsSufficient: '',
+          upgradeReplacement: '',
+          overallCondition: '',
+          conditionDetails: {
+            leafGap: '',
+            thresholdGap: '',
+            notes: ''
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading survey:', error);
+      setError('Failed to load survey data');
+    }
+  };
+
+  const handleDoorChange = async (doorNumber) => {
+    if (doorNumber < 1) return;
+    await loadSurveyData(doorNumber);
+    setCurrentDoor(doorNumber);
+  };
+
+  const resetForm = () => {
+    const resetData = {
+      doorPinNo: currentDoor,
+      floor: '',
+      room: '',
+      locationOfDoorSet: '',
+      doorType: '',
+      doorConfiguration: {
+        type: '',
+        hasFanLight: false,
+        hasSidePanels: false
+      },
+      doorMaterial: {
+        type: '',
+        customType: ''
+      },
+      rating: 'FD30s',
+      thirdPartyCertification: {
+        type: '',
+        customText: '',
+        photo: null,
+        photoUrl: null
+      },
+      surveyed: '',
+      isFlagged: false,
+      leafGap: '',
+      thresholdGap: '',
+      showExtendedThresholdGap: false,
+      measurements: {
+        leafGapPhoto: null,
+        leafGapPhotoUrl: null,
+        thresholdGapPhoto: null,
+        thresholdGapPhotoUrl: null,
+        leafThicknessPhoto: null,
+        leafThicknessPhotoUrl: null
+      },
+      leafThickness: '',
+      combinedStripsCondition: '',
+      combinedStripsDefect: '',
+      selfCloserFunctional: '',
+      selfCloserDefect: '',
+      selfCloserCustomDefect: '',
+      hingesCondition: '',
+      hingesDefect: '',
+      hingesCustomDefect: '',
+      frameCondition: '',
+      frameDefect: '',
+      frameCustomDefect: '',
+      handlesSufficient: '',
+      handlesDefect: '',
+      handlesCustomDefect: '',
+      signageSatisfactory: '',
+      signageDefect: '',
+      signageCustomDefect: '',
+      doorGuardWorking: '',
+      glazingSufficient: '',
+      glazingDefect: '',
+      glazingCustomDefect: '',
+      glazingBeading: '',
+      glazing30Minutes: '',
+      fanLightsSufficient: '',
+      fanLightsDefect: '',
+      fanLightsCustomDefect: '',
+      headerPanelsSufficient: '',
+      upgradeReplacement: '',
+      overallCondition: '',
+      addDetail: '',
+      conditionDetails: {
+        leafGap: '',
+        thresholdGap: '',
+        notes: ''
+      },
+      customSection: {
+        label: '',
+        value: '',
+        defect: '',
+        customDefect: '',
+        componentName: '',
+        description: ''
+      },
+      defectPhotos: {
+        frame: null,
+        handles: null,
+        signage: null,
+        selfCloser: null,
+        hinges: null,
+        glazing: null,
+        fanLights: null,
+        combinedStrips: null,
+        customSection: null
+      },
+      combinedStripsPhoto: null,
+      combinedStripsPhotoUrl: null,
+      roomType: ''
+    };
+
+    setFormData(resetData);
+    setIsEditing(false);
+    setSurveyId(null);
+    setUploadedPhotos(
+      Object.values(PHOTO_TYPES).reduce((acc, type) => ({ ...acc, [type]: false }), {})
+    );
+    setTempPhotos({});
+    setDrawingFile(null);
+    setHasSkippedDrawing(false);
+    setValidationErrors({});
+    setError('');
+    setIsSurveySaved(false);
+
+    return resetData;
+  };
+
   const handleSave = async () => {
     try {
-      // Validate form before submission
+      console.log('Starting save process...');
+      console.log('Current form data:', formData);
+      
       if (!validateForm()) {
+        console.log('Validation errors:', validationErrors);
         setError('Please fill in all required fields');
         return;
       }
 
-      // Prepare survey data with proper formatting
+      console.log('Form validation passed, preparing survey data...');
       const surveyData = {
         doorNumber: formData.doorPinNo.toString(),
         floor: formData.floor || '',
@@ -407,6 +671,12 @@ const FireDoorSurveyForm = () => {
         doorConfiguration: getDoorTypeDisplay(formData.doorConfiguration),
         doorMaterial: getDoorMaterialDisplay(formData.doorMaterial),
         rating: formData.rating,
+        thirdPartyCertification: {
+          type: formData.thirdPartyCertification.type || '',
+          customText: formData.thirdPartyCertification.customText || '',
+          photo: formData.thirdPartyCertification.photo || null,
+          photoUrl: formData.thirdPartyCertification.photoUrl || null
+        },
         surveyed: formData.surveyed,
         leafGap: formData.leafGap || '',
         thresholdGap: formData.thresholdGap || '',
@@ -420,85 +690,66 @@ const FireDoorSurveyForm = () => {
         notes: formData.conditionDetails?.notes || ''
       };
 
-      // Save to backend
-      const response = await axios.post(`${API_BASE_URL}/api/surveys`, surveyData);
-      
-      if (response.data.success) {
-        // Set the survey ID from the response
-        setSurveyId(response.data._id);
+      let response;
+      try {
+        if (isEditing && surveyId) {
+          // Update existing survey
+          response = await axios.put(`${API_BASE_URL}/api/surveys/${surveyId}`, surveyData);
+        } else {
+          // Create new survey
+          response = await axios.post(`${API_BASE_URL}/api/surveys`, surveyData);
+        }
+      } catch (error) {
+        console.error('Error saving survey:', error);
+        throw new Error(error.response?.data?.message || 'Failed to save survey');
+      }
 
+      if (response.data) {
+        // Set the survey ID from the response
+        const savedSurveyId = response.data._id || response.data.id;
+        
         // Upload any temporary photos if they exist
         if (Object.keys(tempPhotos).length > 0) {
-          await uploadTempPhotos(response.data._id);
+          await uploadTempPhotos(savedSurveyId);
         }
         
         // Get all surveys
         const allSurveysResponse = await axios.get(`${API_BASE_URL}/api/surveys`);
-        const allSurveys = allSurveysResponse.data;
+        const surveys = allSurveysResponse.data;
         
-        // Generate Excel file with all surveys
-        const excelResult = await saveSurveysToWorkbook(allSurveys);
+        // Update states
+        setAllSurveys(surveys);
+        setSurveyedDoorsList(surveys.map(s => s.doorNumber));
+        
+        // Generate Excel file
+        const excelResult = await saveSurveysToWorkbook(surveys);
         
         if (excelResult.success) {
-          setError(`Survey saved successfully! Master file updated at: ${excelResult.filePath}`);
+          setError(`Survey ${isEditing ? 'updated' : 'saved'} successfully! Master file updated at: ${excelResult.filePath}`);
           setIsSurveySaved(true);
           
-          // Reset form for next survey
-          setFormData(prevData => ({
-            ...prevData,
-            doorPinNo: parseInt(prevData.doorPinNo) + 1,
-            floor: '',
-            room: '',
-            locationOfDoorSet: '',
-            doorType: '',
-            rating: 'FD30s',
-            surveyed: '',
-            leafGap: '',
-            thresholdGap: '',
-            combinedStripsCondition: '',
-            selfCloserFunctional: '',
-            hingesCondition: '',
-            glazingSufficient: '',
-            fanLightsSufficient: '',
-            upgradeReplacement: '',
-            overallCondition: '',
-            conditionDetails: {
-              leafGap: '',
-              thresholdGap: '',
-              notes: ''
-            },
-            doorConfiguration: {
-              type: '',
-              hasFanLight: false,
-              hasSidePanels: false
-            },
-            doorMaterial: {
-              type: '',
-              customType: ''
-            }
-          }));
-          
-          // Reset photos
-          setUploadedPhotos(
-            Object.values(PHOTO_TYPES).reduce((acc, type) => ({ ...acc, [type]: false }), {})
-          );
-          setTempPhotos({});
-          
-          // Reset drawing
-          setDrawingFile(null);
-          setHasSkippedDrawing(false);
-          
-          // Clear validation errors
-          setValidationErrors({});
+          if (isEditing) {
+            // For editing, just show success message and keep current form data
+            setError('Survey updated successfully!');
+          } else {
+            // For new survey, reset form and move to next door
+            const nextDoorNumber = formData.doorPinNo + 1;
+            const resetData = resetForm();
+            setFormData({
+              ...resetData,
+              doorPinNo: nextDoorNumber
+            });
+            setCurrentDoor(nextDoorNumber);
+          }
         } else {
-          setError(`Survey saved to database but failed to generate Excel file: ${excelResult.error}`);
+          throw new Error('Survey saved to database but failed to generate Excel file: ${excelResult.error}');
         }
       } else {
-        setError('Failed to save survey. Please try again.');
+        throw new Error('Failed to save survey. No response data received.');
       }
     } catch (error) {
-      console.error('Error saving survey:', error);
-      setError(error.response?.data?.message || 'Failed to save survey. Please try again.');
+      console.error('Error in handleSave:', error);
+      setError(error.message || 'Failed to save survey. Please try again.');
     }
   };
 
@@ -522,6 +773,7 @@ const FireDoorSurveyForm = () => {
     let display = configuration.type || '';
     if (configuration.hasFanLight) display += ' + With Fan Light';
     if (configuration.hasSidePanels) display += ' + With Side Panel(s)';
+    if (configuration.hasVPPanel) display += ' + With VP Panel';
     return display;
   };
 
@@ -534,138 +786,79 @@ const FireDoorSurveyForm = () => {
   };
 
   // Function to save multiple door surveys into a single Excel workbook
-  const saveSurveysToWorkbook = (surveys) => {
+  const saveSurveysToWorkbook = async (surveys) => {
     try {
-      // Get customer info from localStorage
-      const customerInfo = JSON.parse(localStorage.getItem('currentCustomer') || '{}');
-      
-      // Use a consistent filename based on customer name or default to 'fire_door_survey_master'
-      const baseFilename = 'fire_door_survey_master';
-      const filename = `${baseFilename}.xlsx`;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Fire Door Surveys');
 
-      console.log('Creating/updating workbook:', filename);
-
-      // Always create a new workbook with all surveys
-      const workbook = XLSX.utils.book_new();
-
-      // Create Client Details sheet
-      const clientDetailsData = [
-        [{ v: 'Fire Door Survey Report', s: { font: { bold: true, sz: 16 }, alignment: { horizontal: 'center' } } }, '', '', ''],
-        ['', '', '', ''],
-        [{ v: 'Client Information', s: { font: { bold: true }, fill: { fgColor: { rgb: "E0E0E0" } } } }, '', '', ''],
-        ['Customer Name:', customerInfo.customerName || 'N/A', 'Company Name:', customerInfo.companyName || 'N/A'],
-        ['Address:', customerInfo.address || 'N/A', 'City:', customerInfo.city || 'N/A'],
-        ['Postcode:', customerInfo.postcode || 'N/A', 'Contact Person:', customerInfo.contactPerson || 'N/A'],
-        ['Phone Number:', customerInfo.phoneNumber || 'N/A', 'Email:', customerInfo.email || 'N/A'],
-        ['Building Type:', customerInfo.buildingType || 'N/A', 'Survey Date:', customerInfo.surveyDate || new Date().toISOString().split('T')[0]],
-        ['Last Updated:', new Date().toLocaleString(), '', ''],
-        ['', '', '', ''],
-        [{ v: 'Survey Summary', s: { font: { bold: true }, fill: { fgColor: { rgb: "E0E0E0" } } } }, '', '', ''],
-        ['Total Doors Surveyed:', surveys.length],
-        ['Pass Rate:', `${((surveys.filter(s => s.surveyed === 'Y').length / surveys.length) * 100).toFixed(1)}%`],
-        ['', '', '', '']
+      // Add columns
+      worksheet.columns = [
+        { header: 'Door/Pin No.', key: 'doorPinNo', width: 15 },
+        { header: 'Floor', key: 'floor', width: 15 },
+        { header: 'Room', key: 'room', width: 15 },
+        { header: 'Location', key: 'locationOfDoorSet', width: 20 },
+        { header: 'Door Type', key: 'doorType', width: 15 },
+        { header: 'Door Material', key: 'doorMaterial', width: 20 },
+        { header: 'Fire Rating', key: 'rating', width: 15 },
+        { header: 'Third Party Certification', key: 'certification', width: 25 },
+        { header: 'Surveyed', key: 'surveyed', width: 10 },
+        { header: 'Flagged for Review', key: 'isFlagged', width: 15 }
       ];
 
-      const clientDetailsSheet = XLSX.utils.aoa_to_sheet(clientDetailsData);
-      XLSX.utils.book_append_sheet(workbook, clientDetailsSheet, 'Client Details');
-
-      // Sort surveys by door number
-      const sortedSurveys = [...surveys].sort((a, b) => parseInt(a.doorNumber) - parseInt(b.doorNumber));
-
-      // Create survey data with fields as rows and doors as columns
-      const surveyFields = [
-        'Floor',
-        'Room',
-        'Location of Door Set',
-        'Door Type',
-        'Door Configuration',
-        'Door Material',
-        'Fire Rating',
-        'Surveyed',
-        'Leaf Gap',
-        'Threshold Gap',
-        'Combined Strips Condition',
-        'Self Closer Functional',
-        'Hinges Condition',
-        'Glazing Sufficient',
-        'Fan Lights Sufficient',
-        'Upgrade/Replacement',
-        'Overall Condition',
-        'Notes'
-      ];
-
-      const surveyData = [
-        ['Field', ...sortedSurveys.map(s => `Door ${s.doorNumber}`)]
-      ];
-
-      // Map field names to database fields
-      const fieldMapping = {
-        'Floor': 'floor',
-        'Room': 'room',
-        'Location of Door Set': 'locationOfDoorSet',
-        'Door Type': 'doorType',
-        'Door Configuration': 'doorConfiguration',
-        'Door Material': 'doorMaterial',
-        'Fire Rating': 'rating',
-        'Surveyed': 'surveyed',
-        'Leaf Gap': 'leafGap',
-        'Threshold Gap': 'thresholdGap',
-        'Combined Strips Condition': 'combinedStripsCondition',
-        'Self Closer Functional': 'selfCloserFunctional',
-        'Hinges Condition': 'hingesCondition',
-        'Glazing Sufficient': 'glazingSufficient',
-        'Fan Lights Sufficient': 'fanLightsSufficient',
-        'Upgrade/Replacement': 'upgradeReplacement',
-        'Overall Condition': 'overallCondition',
-        'Notes': 'notes'
+      // Style the header row
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
       };
 
-      // Add data rows
-      surveyFields.forEach(field => {
-        const row = [field];
-        const dbField = fieldMapping[field];
-        sortedSurveys.forEach(survey => {
-          row.push(survey[dbField] === undefined || survey[dbField] === null || survey[dbField] === '' ? '' : survey[dbField]);
+      // Add data and style flagged rows
+      surveys.forEach((survey) => {
+        const row = worksheet.addRow({
+          doorPinNo: survey.doorPinNo,
+          floor: survey.floor,
+          room: survey.room,
+          locationOfDoorSet: survey.locationOfDoorSet,
+          doorType: survey.doorType,
+          doorMaterial: getDoorMaterialDisplay(survey.doorMaterial),
+          rating: survey.rating,
+          certification: survey.thirdPartyCertification?.type || 'N/A',
+          surveyed: survey.surveyed,
+          isFlagged: survey.isFlagged ? 'Yes' : 'No'
         });
-        surveyData.push(row);
+
+        if (survey.isFlagged) {
+          row.eachCell(cell => {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFFE0E0' }  // Light red background
+            };
+          });
+        }
       });
 
-      // Create the survey worksheet
-      const surveySheet = XLSX.utils.aoa_to_sheet(surveyData);
+      // Auto-fit columns
+      worksheet.columns.forEach(column => {
+        column.width = Math.max(column.width || 10, 15);
+      });
 
-      // Set column widths
-      const colWidths = [
-        { wch: 25 }, // Field names column
-        ...sortedSurveys.map(() => ({ wch: 15 })) // Door data columns
-      ];
-      surveySheet['!cols'] = colWidths;
+      // Generate Excel file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create download link and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'fire_door_surveys.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-      // Style the header row and first column
-      const range = XLSX.utils.decode_range(surveySheet['!ref']);
-      for (let R = 0; R <= range.e.r; ++R) {
-        const firstCell = XLSX.utils.encode_cell({r: R, c: 0});
-        if (!surveySheet[firstCell]) surveySheet[firstCell] = {};
-        surveySheet[firstCell].s = {
-          font: { bold: true },
-          fill: { fgColor: { rgb: "E0E0E0" } }
-        };
-      }
-      for (let C = 0; C <= range.e.c; ++C) {
-        const headerCell = XLSX.utils.encode_cell({r: 0, c: C});
-        if (!surveySheet[headerCell]) surveySheet[headerCell] = {};
-        surveySheet[headerCell].s = {
-          font: { bold: true },
-          fill: { fgColor: { rgb: "F0F0F0" } }
-        };
-      }
-
-      // Add the survey sheet
-      XLSX.utils.book_append_sheet(workbook, surveySheet, 'Survey Data');
-
-      // Save the workbook
-      XLSX.writeFile(workbook, filename);
-      console.log('Successfully saved workbook:', filename);
-      return { success: true, filePath: filename };
+      return { success: true };
     } catch (error) {
       console.error('Error generating Excel file:', error);
       return { success: false, error: error.message };
@@ -710,12 +903,12 @@ const FireDoorSurveyForm = () => {
   const renderFormGroup = (label, field, children, required = false) => (
     <div className={`form-group ${validationErrors[field] ? 'has-error' : ''}`}>
       <label>{label}{required && ' *'}</label>
-      {children}
-      {validationErrors[field] && (
-        <div className="validation-error">
-          {validationErrors[field]}
-        </div>
-      )}
+      <div className="form-input">
+        {children}
+        {validationErrors[field] && (
+          <span className="validation-error">{validationErrors[field]}</span>
+        )}
+      </div>
     </div>
   );
 
@@ -774,63 +967,73 @@ const FireDoorSurveyForm = () => {
     </div>
   );
 
-  const handleDoorChange = (newDoorNumber) => {
-    if (newDoorNumber) {
-      handleInputChange('doorPinNo', newDoorNumber);
+  const handleViewExcel = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/surveys`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch surveys');
+      }
+      const surveys = await response.json();
+      
+      const result = await saveSurveysToWorkbook(surveys);
+      if (!result.success) {
+        setError('Failed to generate Excel file: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error viewing Excel:', error);
+      setError('Failed to generate Excel file: ' + error.message);
     }
   };
 
-  const handleViewExcel = () => {
+  const handleRemoveNotification = (index) => {
+    setNotifications(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      localStorage.setItem('doorNotifications', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleClearSurveys = async () => {
+    // Show confirmation dialog
+    if (!window.confirm('WARNING: This will permanently delete all surveys. This action cannot be undone. Are you sure you want to proceed?')) {
+      return;
+    }
+
     try {
-      // Create a new workbook if one doesn't exist
-      const wb = XLSX.utils.book_new();
+      const response = await axios.delete(`${API_BASE_URL}/api/surveys/clear`);
       
-      // Create the headers for the worksheet
-      const headers = [
-        'Door Number',
-        'Floor',
-        'Room',
-        'Location of Door Set',
-        'Door Type',
-        'Door Configuration',
-        'Door Material',
-        'Fire Resistance Rating',
-        'Surveyed',
-        'Leaf Thickness (mm)',
-        'Leaf Gap (mm)',
-        'Threshold Gap (mm)',
-        'Combined Strips Condition',
-        'Self Closer Device Functional',
-        'Hinges Compliant',
-        'Frame Condition',
-        'Handles Sufficient',
-        'Signage Satisfactory',
-        'Glazing Sufficient',
-        'Fan Lights Sufficient',
-        'Upgrade/Replacement/No Access',
-        'Overall Condition',
-        'Additional Notes'
-      ];
+      if (response.data.success) {
+        // Clear local storage and state
+        localStorage.removeItem('doorNotifications');
+        setNotifications([]);
+        setAllSurveys([]);
+        setSurveyedDoorsList([]);
+        setCurrentDoor(1);
+        setFormData(prevData => ({
+          ...resetForm(),
+          doorPinNo: 1
+        }));
+        setError('All surveys cleared successfully');
+      } else {
+        setError(`Failed to clear surveys: ${response.data.message}`);
+      }
+    } catch (error) {
+      console.error('Error clearing surveys:', error);
+      setError('Failed to clear surveys. Please try again.');
+    }
+  };
 
-      // Create worksheet with headers
-      const ws = XLSX.utils.aoa_to_sheet([headers]);
+  const handleViewSurveys = () => {
+    try {
+      const sortedSurveys = [...allSurveys].sort((a, b) => 
+        parseInt(a.doorNumber) - parseInt(b.doorNumber)
+      );
 
-      // Set column widths
-      const colWidths = headers.map(() => ({ wch: 20 }));
-      ws['!cols'] = colWidths;
-
-      // Add the worksheet to the workbook
-      XLSX.utils.book_append_sheet(wb, ws, 'Survey Data');
-
-      // Convert workbook to HTML
-      const html = XLSX.utils.sheet_to_html(ws);
-      
-      // Open in new window with improved styling
       const newWindow = window.open('');
       newWindow.document.write(`
         <html>
           <head>
-            <title>Fire Door Survey Excel View</title>
+            <title>Past Fire Door Inspections</title>
             <style>
               body { 
                 font-family: Arial, sans-serif; 
@@ -845,6 +1048,41 @@ const FireDoorSurveyForm = () => {
                 padding: 20px;
                 border-radius: 8px;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              }
+              .header {
+                margin-bottom: 20px;
+                padding-bottom: 20px;
+                border-bottom: 2px solid #eee;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+              }
+              .back-button {
+                padding: 8px 16px;
+                background: #34495e;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                font-size: 14px;
+              }
+              .back-button:hover {
+                background: #2c3e50;
+              }
+              h2 {
+                margin: 0;
+              }
+              .read-only-notice {
+                background-color: #e8f5e9;
+                color: #2e7d32;
+                padding: 10px;
+                border-radius: 4px;
+                margin-bottom: 20px;
+                font-weight: 500;
               }
               table { 
                 border-collapse: collapse; 
@@ -866,248 +1104,277 @@ const FireDoorSurveyForm = () => {
               tr:hover {
                 background-color: #f2f2f2;
               }
-              .header {
-                margin-bottom: 20px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-              }
-              .download-btn {
-                padding: 10px 20px;
-                background-color: #217346;
-                color: white;
-                border: none;
+              .summary {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 20px;
+                margin: 20px 0;
+                background-color: #f8f9fa;
+                padding: 15px;
                 border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
               }
-              .download-btn:hover {
-                background-color: #1e6a41;
+              .summary-item {
+                text-align: center;
+              }
+              .summary-value {
+                font-size: 24px;
+                font-weight: bold;
+                color: #2196F3;
+              }
+              .summary-label {
+                color: #666;
+                margin-top: 5px;
               }
             </style>
           </head>
           <body>
             <div class="container">
               <div class="header">
-                <h2>Fire Door Survey Data</h2>
-                <button class="download-btn" onclick="downloadExcel()">Download Excel</button>
+                <button class="back-button" onclick="window.close()">← Back</button>
+                <h2>Fire Door Inspection History</h2>
               </div>
-              ${html}
+              <div class="read-only-notice">
+                ⓘ This is a read-only view of past inspections. To make changes, please use the Edit function in the main form.
+              </div>
+              
+              <div class="summary">
+                <div class="summary-item">
+                  <div class="summary-value">${sortedSurveys.length}</div>
+                  <div class="summary-label">Total Doors Surveyed</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-value">${sortedSurveys.filter(s => s.surveyed === 'Y').length}</div>
+                  <div class="summary-label">Passed Inspection</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-value">${sortedSurveys.filter(s => s.surveyed === 'N').length}</div>
+                  <div class="summary-label">Failed Inspection</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-value">${((sortedSurveys.filter(s => s.surveyed === 'Y').length / sortedSurveys.length) * 100).toFixed(1)}%</div>
+                  <div class="summary-label">Pass Rate</div>
+                </div>
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>Door Number</th>
+                    <th>Location</th>
+                    <th>Floor</th>
+                    <th>Room</th>
+                    <th>Door Type</th>
+                    <th>Rating</th>
+                    <th>Status</th>
+                    <th>Condition</th>
+                    <th>Action Required</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${sortedSurveys.map(survey => `
+                    <tr>
+                      <td>${survey.doorNumber}</td>
+                      <td>${survey.locationOfDoorSet || '-'}</td>
+                      <td>${survey.floor || '-'}</td>
+                      <td>${survey.room || '-'}</td>
+                      <td>${survey.doorType || '-'}</td>
+                      <td>${survey.rating || '-'}</td>
+                      <td>${survey.surveyed === 'Y' ? 'Pass' : 'Fail'}</td>
+                      <td>${survey.overallCondition || '-'}</td>
+                      <td>${survey.upgradeReplacement || '-'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
             </div>
-            <script>
-              function downloadExcel() {
-                // Create a link to download the Excel file
-                const link = document.createElement('a');
-                link.href = 'fire-door-survey-master.xlsx';
-                link.download = 'fire-door-survey-master.xlsx';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }
-            </script>
           </body>
         </html>
       `);
     } catch (error) {
-      console.error('Error handling Excel view:', error);
-      alert('An error occurred while trying to view the Excel data. A new empty template has been created.');
+      console.error('Error displaying inspection history:', error);
+      setError('Failed to display inspection history. Please try again.');
     }
   };
 
-  const handleRemoveNotification = (index) => {
-    setNotifications(prev => {
-      const updated = prev.filter((_, i) => i !== index);
-      localStorage.setItem('doorNotifications', JSON.stringify(updated));
-      return updated;
-    });
+  const handleEditSurvey = async (doorNumber) => {
+    await loadSurveyData(doorNumber);
+  };
+
+  const handleContinueSurvey = () => {
+    // Reset form and move to the next unsurveyed door
+    const nextDoor = surveyedDoorsList.length > 0 
+      ? Math.max(...surveyedDoorsList.map(Number), 0) + 1 
+      : 1;  // Start from 1 if no surveys exist
+    resetForm();
+    setCurrentDoor(nextDoor);
+    setFormData(prev => ({
+      ...prev,
+      doorPinNo: nextDoor
+    }));
+  };
+
+  const handleBackToMenu = () => {
+    navigate('/');
+  };
+
+  const handleThirdPartyCertificationChange = (type) => {
+    setFormData(prev => ({
+      ...prev,
+      thirdPartyCertification: {
+        ...prev.thirdPartyCertification,
+        type,
+        customText: type === 'custom' ? prev.thirdPartyCertification.customText : ''
+      }
+    }));
+    setError('');
+  };
+
+  const handleCustomCertificationChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      thirdPartyCertification: {
+        ...prev.thirdPartyCertification,
+        customText: value
+      }
+    }));
+    setError('');
+  };
+
+  const handleCertificationPhotoUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setFormData(prev => ({
+        ...prev,
+        thirdPartyCertification: {
+          ...prev.thirdPartyCertification,
+          photo: file,
+          photoUrl: URL.createObjectURL(file)
+        }
+      }));
+    }
+  };
+
+  const handleToggleFlag = () => {
+    setFormData(prev => ({
+      ...prev,
+      isFlagged: !prev.isFlagged
+    }));
+  };
+
+  const handleFinalAssessmentChange = (value) => {
+    setFormData(prevData => ({
+      ...prevData,
+      finalAssessment: value,
+      upgradeReplacement: value, // Ensure upgradeReplacement is set
+      // Reset measurements if not replacing door or leaf
+      height: value === 'Replace Doorset' || value === 'Replace leaf' ? prevData.height : '',
+      width: value === 'Replace Doorset' || value === 'Replace leaf' ? prevData.width : '',
+      depth: value === 'Replace Doorset' || value === 'Replace leaf' ? prevData.depth : ''
+    }));
+    setShowMeasurements(value === 'Replace Doorset' || value === 'Replace leaf');
+  };
+
+  const handleRoomTypeSelect = (roomType) => {
+    handleInputChange('room', roomType);
+  };
+
+  const handleQuickSelectThickness = (value) => {
+    handleInputChange('leafThickness', value);
+  };
+
+  const handleRemovePhoto = (photoType) => {
+    setFormData(prev => ({
+      ...prev,
+      measurements: {
+        ...prev.measurements,
+        [`${photoType}Photo`]: null,
+        [`${photoType}PhotoUrl`]: null
+      }
+    }));
   };
 
   return (
     <div className="fire-door-survey-form">
       <div className="form-header">
-        <h1>Fire Door Survey</h1>
-        {error && <div className="error-message">{error}</div>}
+        <div className="header-content">
+          <button className="back-button" onClick={handleBackToMenu}>
+            ← Back to Menu
+          </button>
+          <h2>Fire Door Survey Form</h2>
+        </div>
       </div>
 
-      {/* Survey Tracker Section */}
-      <div className="survey-tracker-card">
-        <div className="tracker-header">
-          <h2>Survey Tracker</h2>
-          <div className="survey-count">{notifications.length}</div>
-        </div>
-        <div className="door-navigation">
-          <button
-            className="nav-button"
-            onClick={() => handleDoorChange(formData.doorPinNo - 1)}
-            disabled={formData.doorPinNo <= 1}
-          >
-            ←
-          </button>
-          <div className="door-display">Door {formData.doorPinNo}</div>
-          <button
-            className="nav-button"
-            onClick={() => handleDoorChange(formData.doorPinNo + 1)}
-          >
-            →
-          </button>
-        </div>
-        <button
-          className="clear-surveys-button"
-          onClick={async () => {
-            try {
-              const response = await fetch(`${API_BASE_URL}/api/surveys/clear`, {
-                method: 'DELETE',
-              });
-              const data = await response.json();
-              
-              if (data.success) {
-                localStorage.removeItem('doorNotifications');
-                setNotifications([]);
-                setError('All surveys cleared successfully');
-              } else {
-                setError(`Failed to clear surveys: ${data.message}`);
-              }
-            } catch (error) {
-              console.error('Error clearing surveys:', error);
-              setError('Failed to clear surveys. Please try again.');
-            }
-          }}
+      <div className="clear-surveys-container">
+        <button 
+          className="clear-button"
+          onClick={handleClearSurveys}
+          disabled={allSurveys.length === 0}
         >
-          Clear All Surveys ({notifications.length})
+          Clear All Surveys ({allSurveys.length})
         </button>
       </div>
-      
-      {/* Add Notifications Section */}
-      {notifications.length > 0 && (
-        <div className="notification-section">
-          <div className="notification-header">
-            <h3>Doors Requiring Attention</h3>
-            <button 
-              className="toggle-notifications"
-              onClick={() => setShowNotifications(!showNotifications)}
-            >
-              View Notifications
-              <span className="notification-count">{notifications.length}</span>
-            </button>
-          </div>
-          
-          {showNotifications && (
-            <div className="notification-carousel">
-              <button
-                className="carousel-button"
-                onClick={() => setCurrentNotificationIndex(prev => Math.max(0, prev - 1))}
-                disabled={currentNotificationIndex === 0}
-              >
-                ←
-              </button>
-              
-              <div className="notification-content">
-                <div className="notification-details">
-                  <div className="door-number">Door {notifications[currentNotificationIndex].doorNumber}</div>
-                  <div className="location">{notifications[currentNotificationIndex].location}</div>
-                  <div className="floor-room">
-                    {notifications[currentNotificationIndex].floor && `Floor: ${notifications[currentNotificationIndex].floor}`}
-                    {notifications[currentNotificationIndex].room && ` - Room: ${notifications[currentNotificationIndex].room}`}
-                  </div>
-                  <div className="date">
-                    {new Date(notifications[currentNotificationIndex].date).toLocaleDateString()}
-                  </div>
-                </div>
-                
-                <button
-                  className="remove-notification"
-                  onClick={() => handleRemoveNotification(currentNotificationIndex)}
-                >
-                  Remove
-                </button>
-              </div>
-              
-              <button
-                className="carousel-button"
-                onClick={() => setCurrentNotificationIndex(prev => 
-                  Math.min(notifications.length - 1, prev + 1)
-                )}
-                disabled={currentNotificationIndex === notifications.length - 1}
-              >
-                →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
-      <div className="form-section">
+      <SurveyTracker 
+        totalSurveys={Math.max(...surveyedDoorsList.map(Number), currentDoor)}
+        currentDoor={currentDoor}
+        onDoorChange={handleDoorChange}
+        surveyedDoorsList={surveyedDoorsList}
+        onViewSurveys={handleViewSurveys}
+        onEditSurvey={handleEditSurvey}
+        onContinueSurvey={handleContinueSurvey}
+      />
+
+      <div className="drawing-section">
         <h2>Drawing Upload</h2>
         <div className="drawing-upload-container">
-          <button onClick={handleDrawingUpload} className="upload-button">
+          <button
+            className="upload-button"
+            onClick={() => document.getElementById('drawing-upload').click()}
+          >
             Import Drawing
           </button>
-          <button onClick={handleSkipDrawing} className="skip-button">
+          <input
+            type="file"
+            id="drawing-upload"
+            accept="image/*"
+            onChange={handleDrawingUpload}
+            style={{ display: 'none' }}
+          />
+          <button
+            className="skip-button"
+            onClick={handleSkipDrawing}
+          >
             Skip Drawing
           </button>
         </div>
-      </div>
-
-      {/* Drawing Upload Section */}
-      <section className="form-section drawing-section">
-        <h3>Drawing Upload</h3>
-        <div className="drawing-upload-container">
-          {!drawingFile && !hasSkippedDrawing ? (
-            <div className="drawing-options">
-              <div className="drawing-upload-button">
-                <input
-                  type="file"
-                  id="drawing-upload"
-                  accept=".pdf,.dwg,.dxf,.jpg,.jpeg,.png"
-                  onChange={handleDrawingUpload}
-                  style={{ display: 'none' }}
-                />
-                <label htmlFor="drawing-upload" className="upload-label">
-                  Import Drawing
-                </label>
-              </div>
+        {formData.drawing && (
+          <div className="drawing-status">
+            <div className="drawing-preview">
+              <span>Drawing uploaded: {formData.drawing.name}</span>
               <button
-                type="button"
-                className="skip-drawing-button"
-                onClick={handleSkipDrawing}
+                className="remove-drawing-button"
+                onClick={() => setFormData(prev => ({ ...prev, drawing: null }))}
               >
-                Skip Drawing
+                Remove
               </button>
             </div>
-          ) : (
-            <div className="drawing-status">
-              {drawingFile ? (
-                <div className="drawing-preview">
-                  <span>{drawingFile.name}</span>
-                  <button
-                    type="button"
-                    className="remove-drawing-button"
-                    onClick={() => {
-                      setDrawingFile(null);
-                      setHasSkippedDrawing(false);
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <div className="drawing-skipped">
-                  <span>Drawing upload skipped</span>
-                  <button
-                    type="button"
-                    className="change-drawing-button"
-                    onClick={() => setHasSkippedDrawing(false)}
-                  >
-                    Change
-                  </button>
-                </div>
-              )}
+          </div>
+        )}
+        {formData.drawingSkipped && (
+          <div className="drawing-status">
+            <div className="drawing-skipped">
+              <span>Drawing upload skipped</span>
+              <button
+                className="change-drawing-button"
+                onClick={() => setFormData(prev => ({ ...prev, drawingSkipped: false }))}
+              >
+                Change
+              </button>
             </div>
-          )}
-        </div>
-      </section>
+          </div>
+        )}
+      </div>
 
-      {/* Door/Pin Number Section */}
       <section className="form-section">
         <div className="number-input-group">
           <label>Door/Pin No.</label>
@@ -1121,18 +1388,15 @@ const FireDoorSurveyForm = () => {
         </div>
       </section>
 
-      {/* Basic Information Section */}
       <section className="form-section">
         <h3>Basic Information</h3>
-        {renderFormGroup('Location of Door Set', 'locationOfDoorSet', (
-          <input
-            type="text"
-            value={formData.locationOfDoorSet}
-            onChange={(e) => handleInputChange('locationOfDoorSet', e.target.value)}
-            className={`text-input ${validationErrors.locationOfDoorSet ? 'error' : ''}`}
-            placeholder="Enter door set location"
+        <div className="form-group">
+          <label htmlFor="location">Location of Door Set *</label>
+          <LocationSelector
+            onSelect={(location) => handleInputChange('locationOfDoorSet', location)}
+            initialValue={formData.locationOfDoorSet}
           />
-        ), true)}
+        </div>
         <div className="form-group">
           <label>Floor</label>
           <select
@@ -1149,29 +1413,22 @@ const FireDoorSurveyForm = () => {
           </select>
         </div>
 
-        <div className="form-group">
-          <label>Room</label>
-          <select
-            value={formData.room}
-            onChange={(e) => handleInputChange('room', e.target.value)}
-            className="select-input"
-          >
-            <option value="">Select Room</option>
-            <option value="corridor">Corridor</option>
-            <option value="stairwell">Stairwell</option>
-            <option value="lobby">Lobby</option>
-          </select>
-        </div>
+        {renderFormGroup('Room', 'room', 
+          <RoomTypeSelector
+            onSelect={handleRoomTypeSelect}
+            initialValue={formData.room}
+          />,
+          true
+        )}
       </section>
 
-      {/* Door Specifications Section */}
       <section className="form-section">
         <h3>Door Specifications</h3>
         <div className="form-group">
           <label>Door Set Configuration *</label>
           <div className="door-config-section">
-          <div className="options-group">
-            {['Single', 'Double', 'Leaf & half'].map(type => 
+            <div className="options-group">
+              {['Single', 'Double', 'Leaf & half'].map(type => 
                 renderOption(
                   type,
                   formData.doorConfiguration.type === type,
@@ -1179,6 +1436,12 @@ const FireDoorSurveyForm = () => {
                   `door-type-${type}`
                 )
               )}
+              <button
+                className={`option-button ${formData.doorConfiguration.hasVPPanel ? 'selected' : ''}`}
+                onClick={(e) => handleDoorConfigChange('hasVPPanel', !formData.doorConfiguration.hasVPPanel)}
+              >
+                With VP Panel
+              </button>
             </div>
             <div className="additional-options">
               <label className="checkbox-label">
@@ -1207,66 +1470,6 @@ const FireDoorSurveyForm = () => {
         </div>
 
         <div className="form-group">
-          <label>Fire Door Material *</label>
-          <div className="door-material-section">
-          <div className="options-group">
-              {['Timber-Based Door Set', 'Composite Door Set'].map(type => 
-                renderOption(
-                  type,
-                  formData.doorMaterial.type === type,
-                  () => handleDoorMaterialChange(type),
-                  `door-material-${type}`
-                )
-            )}
-          </div>
-            <div className="material-dropdown-section">
-              <select
-                className="select-input"
-                value={formData.doorMaterial.type}
-                onChange={(e) => handleDoorMaterialChange(e.target.value)}
-              >
-                <option value="">Select Additional Options</option>
-                <option value="Metal Door Set">Metal Door Set</option>
-                <option value="Wooden Leaf with Metal Frame">Wooden Leaf with Metal Frame</option>
-                <option value="custom">Other (specify)</option>
-              </select>
-              {formData.doorMaterial.type === 'custom' && (
-                <input
-                  type="text"
-                  className="text-input custom-material-input"
-                  placeholder="Enter custom material"
-                  value={formData.doorMaterial.customType}
-                  onChange={(e) => handleCustomMaterialChange(e.target.value)}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label>Rating *</label>
-          <select
-            value={formData.rating}
-            onChange={(e) => handleInputChange('rating', e.target.value)}
-            className="select-input"
-          >
-            <option value="Not Fire-Rated">Not Fire-Rated</option>
-            <option value="Notional">Notional</option>
-            <option value="Nominal">Nominal</option>
-            <option value="FD30">FD30</option>
-            <option value="FD30s">FD30s</option>
-            <option value="FD60">FD60</option>
-            <option value="FD60s">FD60s</option>
-            <option value="FD90">FD90</option>
-            <option value="FD90s">FD90s</option>
-            <option value="FD120">FD120</option>
-            <option value="FD120s">FD120s</option>
-            <option value="FD240">FD240</option>
-            <option value="FD240s">FD240s</option>
-          </select>
-        </div>
-
-        <div className="form-group">
           <label>Surveyed *</label>
           <div className="options-group">
             {['Y', 'N'].map(value => 
@@ -1281,66 +1484,61 @@ const FireDoorSurveyForm = () => {
         </div>
       </section>
 
-      {/* Measurements Section */}
       <section className="form-section">
         <h3>Measurements</h3>
         
         <div className="form-group">
           <label>Leaf thickness (mm)</label>
           <div className="measurement-section">
-            <input
-              type="number"
-              value={formData.leafThickness || ''}
-              onChange={(e) => handleInputChange('leafThickness', e.target.value)}
-              className="number-input"
-              min="0"
-              step="1"
-              placeholder="Enter thickness"
-            />
+            <div className="measurement-input-container">
+              <input
+                type="number"
+                value={formData.leafThickness || ''}
+                onChange={(e) => handleInputChange('leafThickness', e.target.value)}
+                className="number-input"
+                min="0"
+                step="1"
+                placeholder="Enter thickness"
+              />
+              <div className="quick-select-buttons">
+                {commonThicknessValues.map(value => (
+                  <button
+                    key={value}
+                    className={`quick-select-button ${formData.leafThickness === value ? 'selected' : ''}`}
+                    onClick={() => handleQuickSelectThickness(value)}
+                  >
+                    {value}mm
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="photo-upload-container">
+              <button
+                type="button"
+                className="photo-upload-button"
+                onClick={() => document.getElementById('leafThicknessPhoto').click()}
+              >
+                <span className="upload-icon">📷</span>
+              </button>
               <input
                 type="file"
-                id="leaf-thickness-photo"
+                id="leafThicknessPhoto"
                 accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) {
-                    setFormData(prev => ({
-                      ...prev,
-                      measurements: {
-                        ...prev.measurements,
-                        leafThicknessPhoto: file,
-                        leafThicknessPhotoUrl: URL.createObjectURL(file)
-                      }
-                    }));
-                  }
-                }}
                 style={{ display: 'none' }}
-                capture="environment"
+                onChange={(e) => handlePhotoUpload('leafThickness', e)}
               />
-              <label htmlFor="leaf-thickness-photo" className="photo-upload-button">
-                <span className="upload-icon">📸</span>
-                <span>Upload Photo</span>
-              </label>
-              {formData.measurements.leafThicknessPhotoUrl && (
+              {formData.measurements.leafThicknessPhoto && (
                 <div className="photo-preview">
-                  <img src={formData.measurements.leafThicknessPhotoUrl} alt="Leaf thickness measurement" />
+                  <img src={formData.measurements.leafThicknessPhotoUrl} alt="Leaf thickness" />
                   <button
-                    type="button"
                     className="remove-photo"
-                    onClick={() => setFormData(prev => ({
-                      ...prev,
-                      measurements: {
-                        ...prev.measurements,
-                        leafThicknessPhoto: null,
-                        leafThicknessPhotoUrl: null
-                      }
-                    }))}
+                    onClick={() => handleRemovePhoto('leafThickness')}
                   >
-                    ✕
+                    ×
                   </button>
                 </div>
               )}
+              <span>Upload Photo</span>
             </div>
           </div>
         </div>
@@ -1378,7 +1576,6 @@ const FireDoorSurveyForm = () => {
               />
               <label htmlFor="leaf-gap-photo" className="photo-upload-button">
                 <span className="upload-icon">📸</span>
-                <span>Upload Photo</span>
               </label>
               {formData.measurements.leafGapPhotoUrl && (
                 <div className="photo-preview">
@@ -1449,7 +1646,6 @@ const FireDoorSurveyForm = () => {
               />
               <label htmlFor="threshold-gap-photo" className="photo-upload-button">
                 <span className="upload-icon">📸</span>
-                <span>Upload Photo</span>
               </label>
               {formData.measurements.thresholdGapPhotoUrl && (
                 <div className="photo-preview">
@@ -1501,7 +1697,6 @@ const FireDoorSurveyForm = () => {
         </div>
       </section>
 
-      {/* Condition Assessment Section */}
       <section className="form-section">
         <h3>Condition Assessment</h3>
         
@@ -1710,7 +1905,6 @@ const FireDoorSurveyForm = () => {
         </div>
       </section>
 
-      {/* Glazing Section */}
       <section className="form-section">
         <h3>Glazing Assessment</h3>
         <div className="form-group">
@@ -1780,17 +1974,92 @@ const FireDoorSurveyForm = () => {
         </div>
       </section>
 
-      {/* Final Assessment Section */}
       <section className="form-section">
-        <h3>Final Assessment</h3>
+        <div className="assessment-header">
+          <h3>Final Assessment</h3>
+          <button 
+            type="button"
+            className={`flag-button-with-text ${formData.isFlagged ? 'flagged' : ''}`}
+            onClick={handleToggleFlag}
+            title={formData.isFlagged ? 'Remove flag' : 'Flag this door for review'}
+          >
+            <span className="flag-icon">🚩</span>
+            <span className="flag-text">
+              {formData.isFlagged ? 'Flagged for review' : 'Flag for review'}
+            </span>
+          </button>
+        </div>
         <div className="form-group">
-          <label>Upgrade/Replacement/No Access *</label>
-          <div className="options-group">
-            {['Upgrade', 'Replace Doorset', 'Replace leaf', 'No Access'].map(value => 
-              renderOption(value, formData.upgradeReplacement === value, () => handleOptionClick('upgradeReplacement', value), `upgrade-${value}`)
-            )}
+          <label className="required">Upgrade/Replacement/No Access *</label>
+          <div className="button-group">
+            <button
+              type="button"
+              className={`option-button ${formData.upgradeReplacement === 'Upgrade' ? 'selected' : ''}`}
+              onClick={() => handleFinalAssessmentChange('Upgrade')}
+            >
+              Upgrade
+            </button>
+            <button
+              type="button"
+              className={`option-button ${formData.upgradeReplacement === 'Replace Doorset' ? 'selected' : ''}`}
+              onClick={() => handleFinalAssessmentChange('Replace Doorset')}
+            >
+              Replace Doorset
+            </button>
+            <button
+              type="button"
+              className={`option-button ${formData.upgradeReplacement === 'Replace leaf' ? 'selected' : ''}`}
+              onClick={() => handleFinalAssessmentChange('Replace leaf')}
+            >
+              Replace leaf
+            </button>
+            <button
+              type="button"
+              className={`option-button ${formData.upgradeReplacement === 'No Access' ? 'selected' : ''}`}
+              onClick={() => handleFinalAssessmentChange('No Access')}
+            >
+              No Access
+            </button>
           </div>
         </div>
+
+        {showMeasurements && (
+          <div className="form-section measurements-section">
+            <label>Rough overall doorset measurements (mm)</label>
+            <div className="measurements-grid">
+              <div className="measurement-input">
+                <label>Height</label>
+                <input
+                  type="number"
+                  value={formData.height || ''}
+                  onChange={(e) => handleInputChange('height', e.target.value)}
+                  placeholder="Height in mm"
+                  min="0"
+                />
+              </div>
+              <div className="measurement-input">
+                <label>Width</label>
+                <input
+                  type="number"
+                  value={formData.width || ''}
+                  onChange={(e) => handleInputChange('width', e.target.value)}
+                  placeholder="Width in mm"
+                  min="0"
+                />
+              </div>
+              <div className="measurement-input">
+                <label>Depth</label>
+                <input
+                  type="number"
+                  value={formData.depth || ''}
+                  onChange={(e) => handleInputChange('depth', e.target.value)}
+                  placeholder="Depth in mm"
+                  min="0"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="form-group">
           <label>Overall Condition *</label>
@@ -1812,7 +2081,6 @@ const FireDoorSurveyForm = () => {
         </div>
       </section>
 
-      {/* Photo Upload and Custom Section */}
       <section className="form-section">
         <div className="photo-custom-container">
           <PhotoUpload
@@ -1950,7 +2218,7 @@ const FireDoorSurveyForm = () => {
           Cancel
         </button>
         <button type="submit" className="save-button" onClick={handleSave}>
-          {isSurveySaved ? 'Update Survey' : 'Save Survey'}
+          {isEditing ? 'Update Survey' : 'Save Survey'}
         </button>
       </div>
     </div>

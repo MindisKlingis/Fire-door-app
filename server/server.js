@@ -4,6 +4,9 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
+const WebSocketService = require('./services/websocket');
+const CodeAnalyzer = require('./services/codeAnalyzer');
+const chokidar = require('chokidar');
 
 // Load environment variables
 dotenv.config();
@@ -75,9 +78,40 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working' });
 });
 
+// Create HTTP server
+const server = require('http').createServer(app);
+
+// Initialize WebSocket service
+const wsService = new WebSocketService(server, path.join(__dirname, '..'));
+
+// Set up file watcher
+const watcher = chokidar.watch([
+  path.join(__dirname, '..', 'src'),
+  path.join(__dirname, 'routes'),
+  path.join(__dirname, 'models')
+], {
+  ignored: /(^|[\/\\])\../, // ignore dotfiles
+  persistent: true
+});
+
+// Watch for file changes
+watcher.on('change', async (path) => {
+  console.log(`File ${path} has been changed`);
+  await wsService.broadcastUpdate();
+});
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, '../build')));
+
+// The "catchall" handler: for any request that doesn't
+// match one above, send back React's index.html file.
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../build/index.html'));
+});
+
 const PORT = process.env.PORT || 5001;
 
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Server is accessible at http://localhost:${PORT}`);
 }); 

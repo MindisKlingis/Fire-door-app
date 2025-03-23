@@ -7,10 +7,7 @@ const surveySchema = new mongoose.Schema({
   },
   floor: String,
   room: String,
-  locationOfDoorSet: {
-    type: String,
-    required: true
-  },
+  locationOfDoorSet: String,
   doorType: String,
   doorConfiguration: String,
   doorMaterial: String,

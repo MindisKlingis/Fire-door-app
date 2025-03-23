@@ -3,6 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-ro
 import FireDoorSurveyForm from './components/FireDoorSurveyForm';
 import CustomerInfoForm from './components/CustomerInfoForm';
 import LoginForm from './components/LoginForm';
+import SystemArchitecture from './components/SystemArchitecture';
+import DesignTestPage from './components/DesignTestPage';
+import ButtonTestPage from './components/ButtonTestPage';
+import TestingControls from './components/TestingControls';
 import './App.css';
 
 // Protected Route component
@@ -47,9 +51,17 @@ function App() {
                   <h2>Location Tracking</h2>
                   <p>Automatic GPS coordinates for accurate door locations</p>
                 </div>
+                <div className="feature-card">
+                  <div className="feature-icon">🔍</div>
+                  <h2>System Architecture</h2>
+                  <p>View the application structure and component relationships</p>
+                </div>
                 <div className="action-buttons">
                   <Link to="/login" className="start-survey-button">Start New Survey</Link>
                   <Link to="/ai-survey" className="ai-survey-button">AI Survey</Link>
+                  <Link to="/architecture" className="architecture-button">View Architecture</Link>
+                  <Link to="/design-test" className="design-test-button">Design Testing</Link>
+                  <Link to="/testing-controls" className="testing-controls-button">Input Controls</Link>
                 </div>
               </div>
             } />
@@ -64,6 +76,10 @@ function App() {
                 <FireDoorSurveyForm />
               </ProtectedRoute>
             } />
+            <Route path="/architecture" element={<SystemArchitecture />} />
+            <Route path="/design-test" element={<DesignTestPage />} />
+            <Route path="/button-test" element={<ButtonTestPage />} />
+            <Route path="/testing-controls" element={<TestingControls />} />
           </Routes>
         </main>
       </div>
