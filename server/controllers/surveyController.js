@@ -4,34 +4,13 @@ const imageAnalysisService = require('../services/imageAnalysisService');
 // Create a new survey
 const createSurvey = async (req, res) => {
   try {
+    console.log('Creating new survey with data:', req.body);
+    
     // Create a new survey document
-    const surveyData = {
-      doorNumber: req.body.doorNumber || req.body.doorPinNo,
-      floor: req.body.floor,
-      room: req.body.room,
-      locationOfDoorSet: req.body.locationOfDoorSet,
-      doorType: req.body.doorType,
-      doorConfiguration: req.body.doorConfiguration || '',
-      doorMaterial: req.body.doorMaterial || '',
-      rating: req.body.rating,
-      surveyed: req.body.surveyed,
-      leafGap: req.body.leafGap,
-      thresholdGap: req.body.thresholdGap,
-      combinedStripsCondition: req.body.combinedStripsCondition,
-      selfCloserFunctional: req.body.selfCloserFunctional,
-      hingesCondition: req.body.hingesCondition,
-      glazingSufficient: req.body.glazingSufficient,
-      fanLightsSufficient: req.body.fanLightsSufficient,
-      upgradeReplacement: req.body.upgradeReplacement,
-      overallCondition: req.body.overallCondition,
-      notes: req.body.notes
-    };
-
-    console.log('Received data:', req.body);
-    console.log('Saving survey data:', surveyData);
-
-    const survey = new Survey(surveyData);
+    const survey = new Survey(req.body);
     await survey.save();
+
+    console.log('Survey created successfully with ID:', survey._id);
 
     res.status(201).json({
       success: true,
@@ -80,16 +59,36 @@ const getSurveyById = async (req, res) => {
 // Update a survey
 const updateSurvey = async (req, res) => {
   try {
-    const survey = await Survey.findById(req.params.id);
-    if (!survey) {
-      return res.status(404).json({ message: 'Survey not found' });
+    console.log('Updating survey:', req.params.id);
+    console.log('With data:', req.body);
+    
+    const updatedSurvey = await Survey.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedSurvey) {
+      console.log('Survey not found for update:', req.params.id);
+      return res.status(404).json({ 
+        success: false,
+        message: 'Survey not found' 
+      });
     }
     
-    Object.assign(survey, req.body);
-    await survey.save();
-    res.json(survey);
+    console.log('Survey updated successfully:', updatedSurvey._id);
+    res.json({
+      success: true,
+      message: 'Survey updated successfully',
+      survey: updatedSurvey
+    });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error('Error updating survey:', error);
+    res.status(400).json({ 
+      success: false,
+      message: error.message || 'Failed to update survey',
+      error: error 
+    });
   }
 };
 

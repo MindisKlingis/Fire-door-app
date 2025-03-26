@@ -68,19 +68,17 @@ const ROOM_TYPES = {
 const RECENT_SELECTIONS_KEY = 'roomTypeRecentSelections';
 const MAX_RECENT_SELECTIONS = 15;
 
-const WORD_SETS = {
-  'initial': ['Flat', 'Lobby', 'Stairs', 'Lift'],
-  'Flat': ['Entrance', 'Kitchen', 'Bathroom', 'Bedroom'],
-  'Lobby': ['Main', 'Lift', 'Fire', 'Communal'],
-  'Stairs': ['Main', 'Fire', 'Emergency', 'Service'],
-  'Lift': ['Passenger', 'Service', 'Goods', 'Fire']
-};
-
-const RoomTypeSelector = ({ onSelect, initialValue }) => {
+const RoomTypeSelector = ({ onSelect, initialValue, previousRoom }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [inputValue, setInputValue] = useState(initialValue || '');
+  const [inputValue, setInputValue] = useState('');
   const [recentSelections, setRecentSelections] = useState([]);
-  const [currentWordSet, setCurrentWordSet] = useState('initial');
+
+  // Update input value when initialValue changes, but only if it's not empty
+  useEffect(() => {
+    if (initialValue) {
+      setInputValue(initialValue);
+    }
+  }, [initialValue]);
 
   // Load recent selections from localStorage on component mount
   useEffect(() => {
@@ -98,27 +96,16 @@ const RoomTypeSelector = ({ onSelect, initialValue }) => {
   }, [inputValue]);
 
   const handleTypeSelect = (type) => {
-    if (WORD_SETS[type]) {
-      // If clicked word has a corresponding set, show that set
-      setCurrentWordSet(type);
-    } else {
-      // If it's a final selection, update the input
-      setInputValue(type);
-      setIsExpanded(false);
-      onSelect(type);
-      setCurrentWordSet('initial'); // Reset to initial set
-      
-      // Update recent selections
-      const updatedSelections = [type, ...recentSelections.filter(item => item !== type)]
-        .slice(0, MAX_RECENT_SELECTIONS);
-      
-      setRecentSelections(updatedSelections);
-      localStorage.setItem(RECENT_SELECTIONS_KEY, JSON.stringify(updatedSelections));
-    }
-  };
-
-  const handleBackToInitial = () => {
-    setCurrentWordSet('initial');
+    setInputValue(type);
+    setIsExpanded(false);
+    onSelect(type);
+    
+    // Update recent selections
+    const updatedSelections = [type, ...recentSelections.filter(item => item !== type)]
+      .slice(0, MAX_RECENT_SELECTIONS);
+    
+    setRecentSelections(updatedSelections);
+    localStorage.setItem(RECENT_SELECTIONS_KEY, JSON.stringify(updatedSelections));
   };
 
   const handleInputChange = (e) => {
@@ -153,77 +140,74 @@ const RoomTypeSelector = ({ onSelect, initialValue }) => {
 
   const shouldShowDropdown = isExpanded && (inputValue.length >= 3 || !inputValue);
 
+  const handleQuickSelect = () => {
+    if (previousRoom) {
+      handleTypeSelect(previousRoom);
+    }
+  };
+
   return (
     <div className="room-type-selector">
-      <div className="quick-access-buttons">
-        {currentWordSet !== 'initial' && (
-          <button
-            className="quick-access-button back-button"
-            onClick={handleBackToInitial}
+      <div className="selector-container">
+        <div className="selector-header">
+          <input
+            type="text"
+            className="main-input"
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleInputKeyDown}
+            placeholder="Type 3+ letters or select room..."
+          />
+          <span 
+            className={`arrow ${isExpanded ? 'expanded' : ''}`}
+            onClick={() => setIsExpanded(!isExpanded)}
           >
-            ←
-          </button>
-        )}
-        {WORD_SETS[currentWordSet].map(type => (
-          <button
-            key={type}
-            className={`quick-access-button ${inputValue === type ? 'selected' : ''}`}
-            onClick={() => handleTypeSelect(type)}
-          >
-            {type}
-          </button>
-        ))}
-      </div>
-
-      <div className="selector-header">
-        <input
-          type="text"
-          className="main-input"
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={handleInputKeyDown}
-          placeholder="Type 3+ letters or select room..."
-        />
-        <span 
-          className={`arrow ${isExpanded ? 'expanded' : ''}`}
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          ▼
-        </span>
-      </div>
-
-      {shouldShowDropdown && (
-        <div className="selector-content">
-          <div className="items-list">
-            {inputValue.length >= 3 ? (
-              getFilteredItems().map(item => (
-                <div
-                  key={item}
-                  className={`type-item ${inputValue === item ? 'selected' : ''}`}
-                  onClick={() => handleTypeSelect(item)}
-                >
-                  {item}
-                </div>
-              ))
-            ) : (
-              recentSelections.length > 0 && (
-                <div className="recent-selections">
-                  <h4>Recent Selections</h4>
-                  {recentSelections.map(type => (
-                    <div 
-                      key={type} 
-                      className="type-item"
-                      onClick={() => handleTypeSelect(type)}
-                    >
-                      {type}
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-          </div>
+            ▼
+          </span>
         </div>
-      )}
+
+        {shouldShowDropdown && (
+          <div className="selector-content">
+            <div className="items-list">
+              {inputValue.length >= 3 ? (
+                getFilteredItems().map(item => (
+                  <div
+                    key={item}
+                    className={`type-item ${inputValue === item ? 'selected' : ''}`}
+                    onClick={() => handleTypeSelect(item)}
+                  >
+                    {item}
+                  </div>
+                ))
+              ) : (
+                recentSelections.length > 0 && (
+                  <div className="recent-selections">
+                    <h4>Recent Selections</h4>
+                    {recentSelections.map(type => (
+                      <div 
+                        key={type} 
+                        className="type-item"
+                        onClick={() => handleTypeSelect(type)}
+                      >
+                        {type}
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        className="quick-select-button"
+        onClick={handleQuickSelect}
+        disabled={!previousRoom}
+        title={previousRoom ? `Use previous room: ${previousRoom}` : 'No previous room available'}
+      >
+        {previousRoom || 'No previous room'}
+      </button>
     </div>
   );
 };

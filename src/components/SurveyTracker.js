@@ -9,7 +9,8 @@ const SurveyTracker = ({
   surveyedDoorsList,
   onViewSurveys,
   onEditSurvey,
-  onContinueSurvey
+  onContinueSurvey,
+  isFlagged
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [actualTotalDoors, setActualTotalDoors] = useState(totalSurveys);
@@ -21,15 +22,17 @@ const SurveyTracker = ({
     // 2. Total number of surveyed doors
     // 3. Initial totalSurveys value
     const doorNumbers = surveyedDoorsList.map(door => 
-      typeof door === 'string' ? parseInt(door) : parseInt(door.doorNumber)
-    );
+      typeof door === 'object' ? parseInt(door.doorNumber) : parseInt(door)
+    ).filter(num => !isNaN(num));
+    
     const highestDoorNumber = Math.max(
       ...doorNumbers,
       surveyedDoorsList.length,
-      totalSurveys
+      totalSurveys,
+      currentDoor
     );
     setActualTotalDoors(highestDoorNumber);
-  }, [surveyedDoorsList, totalSurveys]);
+  }, [surveyedDoorsList, totalSurveys, currentDoor]);
 
   const handleBack = () => {
     navigate('/');
@@ -37,35 +40,40 @@ const SurveyTracker = ({
 
   const renderMarkers = () => {
     const markers = [];
-    for (let i = 1; i <= Math.max(actualTotalDoors, surveyedDoorsList.length); i++) {
-      const doorInfo = surveyedDoorsList.find(door => {
-        if (typeof door === 'string') {
-          return door === i.toString();
-        }
-        return door.doorNumber === i.toString();
-      });
+    for (let i = 1; i <= actualTotalDoors; i++) {
+      // Check if door is surveyed by looking for it in surveyedDoorsList
+      const isSurveyed = surveyedDoorsList.some(door => 
+        typeof door === 'object' ? 
+        door.doorNumber === String(i) : 
+        door === i
+      );
+      
+      // Get door info if it exists
+      const doorInfo = surveyedDoorsList.find(door => 
+        typeof door === 'object' ? 
+        door.doorNumber === String(i) : 
+        door === i
+      );
 
-      const isSurveyed = !!doorInfo;
-      const isFlagged = typeof doorInfo === 'object' && doorInfo.isFlagged;
+      const isDoorFlagged = i === currentDoor ? isFlagged : (doorInfo?.isFlagged || false);
       
       markers.push(
         <div
           key={i}
-          className={`survey-marker ${i === currentDoor ? 'current' : ''} ${isSurveyed ? 'surveyed' : ''} ${isFlagged ? 'flagged' : ''}`}
+          className={`survey-marker ${i === currentDoor ? 'current' : ''} ${isSurveyed ? 'surveyed' : ''} ${isDoorFlagged ? 'flagged' : ''}`}
           onClick={() => onDoorChange(i)}
-          title={`Door ${i}${isSurveyed ? ' (Surveyed)' : ''}${isFlagged ? ' - Flagged for review' : ''}`}
+          title={`Door ${i}${isSurveyed ? ' (Surveyed)' : ''}${isDoorFlagged ? ' - Flagged for review' : ''}`}
         >
           {i}
-          {isFlagged && <span className="flag-indicator">🚩</span>}
+          {isDoorFlagged && <span className="flag-indicator">🚩</span>}
         </div>
       );
     }
     return markers;
   };
 
-  const flaggedCount = surveyedDoorsList.filter(door => 
-    typeof door === 'object' && door.isFlagged
-  ).length;
+  const flaggedCount = surveyedDoorsList.filter(door => door.isFlagged).length + 
+    (isFlagged && !surveyedDoorsList.some(door => door.doorNumber === currentDoor.toString()) ? 1 : 0);
 
   return (
     <div className="survey-tracker">
