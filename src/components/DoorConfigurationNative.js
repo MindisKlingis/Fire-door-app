@@ -17,37 +17,88 @@ const DoorConfigurationNative = ({
   onMaterialChange,
   validationErrors,
 }) => {
-  const doorTypes = ['Single', 'Double', 'Leaf & half'];
+  const doorTypes = ['With VP Panel', 'Single', 'Double', 'Leaf & half'];
   const materialTypes = [
-    'Timber-Based Door Set',
-    'Composite Door Set',
-    'Metal Door Set',
-    'Wooden Leaf with Metal Frame',
+    'Timber based',
+    'Composite',
+    'Steel',
+    'Timber leaf with steel frame',
     'custom'
   ];
 
   const renderDoorTypeButtons = () => (
-    <View style={styles.optionsGroup}>
-      {doorTypes.map((type) => (
+    <View>
+      <View style={styles.optionsGroup}>
+        {doorTypes.map((type) => {
+          const isVPPanel = type === 'With VP Panel';
+          return (
+            <TouchableOpacity
+              key={type}
+              style={[
+                styles.optionButton,
+                isVPPanel 
+                  ? (configuration.hasVPPanel && styles.optionButtonSelected)
+                  : (configuration.type === type && styles.optionButtonSelected),
+                validationErrors.doorType && !isVPPanel && styles.optionButtonError,
+              ]}
+              onPress={() => {
+                if (isVPPanel) {
+                  onConfigurationChange('hasVPPanel', !configuration.hasVPPanel);
+                } else {
+                  onConfigurationChange('type', type);
+                }
+              }}
+            >
+              <Text
+                style={[
+                  styles.optionButtonText,
+                  isVPPanel 
+                    ? (configuration.hasVPPanel && styles.optionButtonTextSelected)
+                    : (configuration.type === type && styles.optionButtonTextSelected),
+                ]}
+              >
+                {type}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <View style={styles.additionalOptions}>
         <TouchableOpacity
-          key={type}
           style={[
             styles.optionButton,
-            configuration.type === type && styles.optionButtonSelected,
-            validationErrors.doorType && styles.optionButtonError,
+            configuration.hasFanLight && styles.optionButtonSelected,
           ]}
-          onPress={() => onConfigurationChange('type', type)}
+          onPress={() => onConfigurationChange('hasFanLight', !configuration.hasFanLight)}
         >
           <Text
             style={[
               styles.optionButtonText,
-              configuration.type === type && styles.optionButtonTextSelected,
+              configuration.hasFanLight && styles.optionButtonTextSelected,
             ]}
           >
-            {type}
+            With Fan Light
           </Text>
         </TouchableOpacity>
-      ))}
+
+        <TouchableOpacity
+          style={[
+            styles.optionButton,
+            configuration.hasSidePanels && styles.optionButtonSelected,
+          ]}
+          onPress={() => onConfigurationChange('hasSidePanels', !configuration.hasSidePanels)}
+        >
+          <Text
+            style={[
+              styles.optionButtonText,
+              configuration.hasSidePanels && styles.optionButtonTextSelected,
+            ]}
+          >
+            With Side Panel(s)
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -56,26 +107,6 @@ const DoorConfigurationNative = ({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Door Set Configuration *</Text>
         {renderDoorTypeButtons()}
-        <View style={styles.additionalOptions}>
-          <View style={styles.switchContainer}>
-            <Text style={styles.switchLabel}>With Fan Light</Text>
-            <Switch
-              value={configuration.hasFanLight}
-              onValueChange={(value) => onConfigurationChange('hasFanLight', value)}
-              trackColor={{ false: '#e0e0e0', true: '#007bff' }}
-              thumbColor={Platform.OS === 'ios' ? '#fff' : configuration.hasFanLight ? '#0056b3' : '#f4f3f4'}
-            />
-          </View>
-          <View style={styles.switchContainer}>
-            <Text style={styles.switchLabel}>With Side Panel(s)</Text>
-            <Switch
-              value={configuration.hasSidePanels}
-              onValueChange={(value) => onConfigurationChange('hasSidePanels', value)}
-              trackColor={{ false: '#e0e0e0', true: '#007bff' }}
-              thumbColor={Platform.OS === 'ios' ? '#fff' : configuration.hasSidePanels ? '#0056b3' : '#f4f3f4'}
-            />
-          </View>
-        </View>
         {validationErrors.doorType && (
           <Text style={styles.errorText}>{validationErrors.doorType}</Text>
         )}
@@ -152,6 +183,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 16,
+    gap: 8,
+    justifyContent: 'flex-start',
   },
   optionButton: {
     paddingVertical: 8,
@@ -160,8 +193,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
     borderRadius: 4,
-    marginRight: 8,
-    marginBottom: 8,
+    minWidth: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 0,
   },
   optionButtonSelected: {
     backgroundColor: '#007bff',
@@ -173,22 +208,16 @@ const styles = StyleSheet.create({
   optionButtonText: {
     color: '#333',
     fontSize: 14,
+    textAlign: 'center',
   },
   optionButtonTextSelected: {
     color: '#fff',
   },
   additionalOptions: {
-    marginTop: 16,
-  },
-  switchContainer: {
+    marginTop: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  switchLabel: {
-    fontSize: 14,
-    color: '#666',
+    gap: 12,
+    flexWrap: 'wrap',
   },
   materialSection: {
     marginTop: 8,

@@ -128,9 +128,9 @@ const TestingControls = () => {
             onChange={(e) => handleInputChange('doorMaterial', e.target.value)}
           >
             <option value="">Select Material</option>
-            <option value="timber">Timber-Based Door Set</option>
-            <option value="composite">Composite Door Set</option>
-            <option value="metal">Metal Door Set</option>
+            <option value="timber">Timber based</option>
+            <option value="composite">Composite</option>
+            <option value="metal">Steel</option>
           </select>
         </div>
 

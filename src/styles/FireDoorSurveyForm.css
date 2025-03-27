@@ -1,0 +1,21 @@
+.door-material-section {
+  margin-top: 10px;
+}
+
+.door-material-section .options-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.custom-material-input {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.custom-material-input .text-input {
+  max-width: 300px;
+} 

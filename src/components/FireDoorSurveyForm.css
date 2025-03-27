@@ -244,7 +244,17 @@
 .options-group {
   display: flex;
   gap: 10px;
-  margin-bottom: 15px;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+}
+
+.additional-options {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  border-top: none;
+  padding-top: 0;
 }
 
 .options-grid {
@@ -275,6 +285,8 @@
   background: white;
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 120px;
+  text-align: center;
 }
 
 /* Add specific styling for the VP Panel button */
@@ -724,22 +736,18 @@
 }
 
 .door-config-section {
-  margin-top: 10px;
-}
-
-.additional-options {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #eee;
+  gap: 10px;
 }
 
 .door-config-display {
-  margin-top: 15px;
+  margin-top: 10px;
   color: #666;
   font-size: 0.9em;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
 }
 
 .checkbox-label {
