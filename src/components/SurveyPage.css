@@ -1,0 +1,51 @@
+/* Survey page layout */
+.survey-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+  padding: var(--spacing-md);
+}
+
+/* Survey tracker styles */
+.survey-tracker-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto var(--spacing-xl);
+  background: var(--background-light);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-xl);
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+}
+
+.app-content {
+  width: 100%;
+  margin-top: 60px; /* Space for the fixed SurveyTracker */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+  .survey-page {
+    gap: var(--spacing-lg);
+    padding: var(--spacing-sm);
+  }
+
+  .survey-tracker-container {
+    padding: var(--spacing-sm);
+  }
+
+  .app-container {
+    padding: var(--spacing-md);
+  }
+} 

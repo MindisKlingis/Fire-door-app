@@ -1,0 +1,74 @@
+/* Form elements */
+.form-control {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-base);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: var(--background-light);
+  transition: border-color var(--transition-base);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--secondary-color);
+}
+
+/* Form groups */
+.form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+/* Error states */
+.form-control.error {
+  border-color: var(--error-color);
+}
+
+.error-message {
+  color: var(--error-color);
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+}
+
+/* Loading states */
+.loading-spinner {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--secondary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* High contrast mode support */
+@media (forced-colors: active) {
+  .form-control {
+    forced-color-adjust: none;
+    background-color: Field;
+    color: FieldText;
+    border: 1px solid FieldText;
+  }
+
+  .form-control:focus {
+    outline: 2px solid Highlight;
+  }
+
+  .loading-spinner {
+    forced-color-adjust: none;
+    border-color: ButtonText;
+  }
+} 

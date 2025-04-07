@@ -1,0 +1,47 @@
+.App-header {
+  background-color: var(--primary-color);
+  padding: var(--spacing-md);
+  color: white;
+  margin-bottom: var(--spacing-md);
+}
+
+.App-header h1 {
+  margin: 0;
+  font-size: clamp(var(--font-size-xl), 5vw, var(--font-size-2xl));
+}
+
+.App-header p {
+  margin: var(--spacing-sm) 0 0;
+  font-size: clamp(var(--font-size-sm), 3vw, var(--font-size-base));
+  opacity: 0.9;
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+  .App-header {
+    padding: var(--spacing-md) var(--spacing-sm);
+  }
+}
+
+/* iPhone notch/dynamic island support */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .App-header {
+    padding-top: calc(var(--spacing-md) + var(--safe-area-inset-top));
+    padding-left: var(--safe-area-inset-left);
+    padding-right: var(--safe-area-inset-right);
+  }
+}
+
+/* Landscape mode optimizations */
+@media (max-height: 480px) and (orientation: landscape) {
+  .App-header {
+    padding: var(--spacing-sm);
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .App-header {
+    background-color: #000000;
+  }
+} 

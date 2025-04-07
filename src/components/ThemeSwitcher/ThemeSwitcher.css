@@ -1,0 +1,80 @@
+.theme-switcher {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 2rem;
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+.theme-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: none;
+  background: var(--glass-background);
+  color: var(--text-color);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: var(--glass-backdrop-filter);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter);
+}
+
+.theme-button:hover {
+  transform: scale(1.1);
+  background: var(--glass-background);
+  backdrop-filter: var(--glass-backdrop-filter) brightness(1.1);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter) brightness(1.1);
+}
+
+.theme-button.active {
+  background: var(--primary-color);
+  color: var(--background-light);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Safe area inset support */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .theme-switcher {
+    top: calc(1rem + env(safe-area-inset-top));
+    right: calc(1rem + env(safe-area-inset-right));
+  }
+}
+
+/* Mobile optimization */
+@media (max-width: 480px) {
+  .theme-switcher {
+    top: auto;
+    bottom: 1rem;
+    right: 1rem;
+  }
+
+  .theme-button {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1rem;
+  }
+}
+
+/* High contrast mode */
+@media (forced-colors: active) {
+  .theme-switcher {
+    border: 1px solid ButtonText;
+  }
+
+  .theme-button {
+    border: 1px solid ButtonText;
+  }
+
+  .theme-button.active {
+    background: Highlight;
+    color: HighlightText;
+  }
+} 

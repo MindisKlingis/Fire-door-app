@@ -1,9 +1,133 @@
 .survey-tracker {
     background: white;
-    padding: 2rem;
+    padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    margin-bottom: 2rem;
+    margin-bottom: 20px;
+}
+
+.survey-tracker h2 {
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+}
+
+.progress-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.stat {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.door-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.door-button {
+    width: 40px;
+    height: 40px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #666;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.door-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.door-button.surveyed {
+    background: #4CAF50;
+    border-color: #43A047;
+    color: white;
+}
+
+.door-button.flagged {
+    background: #f44336;
+    border-color: #e53935;
+    color: white;
+}
+
+.door-button.current {
+    border-color: #2196F3;
+    box-shadow: 0 0 0 2px #2196F3;
+}
+
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.action-buttons button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.back-button {
+    background: #34495e;
+    color: white;
+}
+
+.view-past-button {
+    background: #2196F3;
+    color: white;
+}
+
+.edit-button {
+    background: #4CAF50;
+    color: white;
+}
+
+.continue-button {
+    background: #FF9800;
+    color: white;
+}
+
+.action-buttons button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-buttons button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+@media (max-width: 768px) {
+    .action-buttons {
+        grid-template-columns: 1fr;
+    }
+    
+    .door-button {
+        width: 35px;
+        height: 35px;
+    }
 }
 
 .door-number {

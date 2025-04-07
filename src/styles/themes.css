@@ -1,0 +1,190 @@
+/* Base theme variables */
+:root,
+.theme-light {
+  /* Color palette */
+  --color-primary-50: #edf2f7;
+  --color-primary-100: #e2e8f0;
+  --color-primary-200: #cbd5e0;
+  --color-primary-300: #a0aec0;
+  --color-primary-400: #718096;
+  --color-primary-500: #2c3e50;
+  --color-primary-600: #2a4365;
+  --color-primary-700: #1a365d;
+  --color-primary-800: #153e75;
+  --color-primary-900: #1a365d;
+
+  --color-secondary-50: #ebf8ff;
+  --color-secondary-100: #bee3f8;
+  --color-secondary-200: #90cdf4;
+  --color-secondary-300: #63b3ed;
+  --color-secondary-400: #4299e1;
+  --color-secondary-500: #3498db;
+  --color-secondary-600: #2b6cb0;
+  --color-secondary-700: #2c5282;
+  --color-secondary-800: #2a4365;
+  --color-secondary-900: #1a365d;
+
+  --color-accent-50: #fff5f5;
+  --color-accent-100: #fed7d7;
+  --color-accent-200: #feb2b2;
+  --color-accent-300: #fc8181;
+  --color-accent-400: #f56565;
+  --color-accent-500: #e74c3c;
+  --color-accent-600: #c53030;
+  --color-accent-700: #9b2c2c;
+  --color-accent-800: #822727;
+  --color-accent-900: #63171b;
+
+  /* Semantic colors - Light theme */
+  --primary-color: var(--color-primary-500);
+  --secondary-color: var(--color-secondary-500);
+  --accent-color: var(--color-accent-500);
+  --success-color: #2ecc71;
+  --warning-color: #f1c40f;
+  --error-color: var(--color-accent-500);
+  
+  --background-color: #f5f6fa;
+  --background-light: #ffffff;
+  --text-color: var(--color-primary-500);
+  --text-light: var(--color-primary-400);
+  --border-color: var(--color-primary-200);
+
+  /* Glass effect variables */
+  --glass-background: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --glass-backdrop-filter: blur(10px);
+
+  /* Interactive states */
+  --hover-overlay: rgba(0, 0, 0, 0.05);
+  --active-overlay: rgba(0, 0, 0, 0.1);
+  --disabled-opacity: 0.7;
+  
+  /* Focus states */
+  --focus-ring-color: var(--color-secondary-400);
+  --focus-ring-offset: 2px;
+}
+
+/* Dark theme */
+.theme-dark,
+:root[data-theme="dark"] {
+  --primary-color: var(--color-primary-400);
+  --secondary-color: var(--color-secondary-400);
+  --accent-color: var(--color-accent-400);
+  
+  --background-color: #1a1a1a;
+  --background-light: #2d2d2d;
+  --text-color: #ffffff;
+  --text-light: #a0a0a0;
+  --border-color: #2d2d2d;
+
+  /* Glass effect variables */
+  --glass-background: rgba(40, 40, 40, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --glass-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+
+  /* Interactive states */
+  --hover-overlay: rgba(255, 255, 255, 0.05);
+  --active-overlay: rgba(255, 255, 255, 0.1);
+}
+
+/* Eye comfort theme */
+.theme-eye-comfort,
+:root[data-theme="eye-comfort"] {
+  --background-color: #f0e6d6;
+  --background-light: #fff9f0;
+  --text-color: #433422;
+  --text-light: #6b5a44;
+  --primary-color: #5c4d3d;
+  --secondary-color: #2b87a5;
+  --accent-color: #d35f4d;
+  --border-color: #d4c5b3;
+  
+  /* Reduced contrast and blue light */
+  --reduced-contrast: 0.95;
+  filter: brightness(var(--reduced-contrast)) sepia(20%) contrast(0.95);
+}
+
+/* Glass effect utilities */
+.glass {
+  background: var(--glass-background);
+  backdrop-filter: var(--glass-backdrop-filter);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-hover:hover {
+  backdrop-filter: var(--glass-backdrop-filter) brightness(1.1);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter) brightness(1.1);
+}
+
+/* High contrast mode */
+@media (forced-colors: active) {
+  :root,
+  .theme-light,
+  .theme-dark,
+  .theme-eye-comfort {
+    --primary-color: ButtonText;
+    --secondary-color: LinkText;
+    --accent-color: Mark;
+    --success-color: MarkText;
+    --warning-color: Mark;
+    --error-color: Mark;
+    
+    --background-color: Canvas;
+    --background-light: Canvas;
+    --text-color: CanvasText;
+    --text-light: GrayText;
+    --border-color: CanvasText;
+
+    /* Glass effect reset */
+    --glass-background: Canvas;
+    --glass-border: CanvasText;
+    --glass-shadow: none;
+    --glass-backdrop-filter: none;
+  }
+
+  /* Force high contrast overrides */
+  * {
+    forced-color-adjust: none;
+  }
+
+  /* Reset filters for eye comfort */
+  .theme-eye-comfort {
+    filter: none;
+  }
+
+  /* Ensure proper contrast for interactive elements */
+  button, 
+  input, 
+  select, 
+  textarea {
+    background-color: Field;
+    color: FieldText;
+    border: 1px solid FieldText;
+  }
+
+  a {
+    color: LinkText;
+  }
+
+  button:hover,
+  a:hover {
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  :disabled {
+    color: GrayText;
+    border-color: GrayText;
+    opacity: 1;
+  }
+
+  .glass {
+    background: Canvas;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid CanvasText;
+  }
+}

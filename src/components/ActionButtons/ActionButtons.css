@@ -1,0 +1,100 @@
+/* Action buttons container */
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  width: 100%;
+  max-width: 400px;
+  margin: var(--spacing-xl) auto;
+  padding: 0 var(--spacing-md);
+}
+
+/* Common button styles */
+.start-survey-button,
+.ai-survey-button,
+.architecture-button,
+.design-test-button {
+  display: inline-block;
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-size: clamp(var(--font-size-base), 3.5vw, var(--font-size-lg));
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: var(--border-radius);
+  transition: all var(--transition-base);
+  width: 100%;
+  text-align: center;
+}
+
+/* Button variants */
+.start-survey-button {
+  background-color: var(--secondary-color);
+  color: white;
+}
+
+.ai-survey-button {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.architecture-button {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.design-test-button {
+  background-color: #9c27b0;
+  color: white;
+}
+
+/* Hover effects */
+.start-survey-button:hover,
+.ai-survey-button:hover,
+.architecture-button:hover,
+.design-test-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+  .action-buttons {
+    padding: 0 var(--spacing-sm);
+    margin: var(--spacing-lg) auto;
+  }
+
+  .start-survey-button,
+  .ai-survey-button,
+  .architecture-button,
+  .design-test-button {
+    padding: var(--spacing-sm) var(--spacing-lg);
+  }
+}
+
+/* Landscape mode optimizations */
+@media (max-height: 480px) and (orientation: landscape) {
+  .action-buttons {
+    flex-direction: row;
+    max-width: 600px;
+  }
+}
+
+/* High contrast mode support */
+@media (forced-colors: active) {
+  .start-survey-button,
+  .ai-survey-button,
+  .architecture-button,
+  .design-test-button {
+    forced-color-adjust: none;
+    background-color: ButtonFace;
+    color: ButtonText;
+    border: 1px solid ButtonText;
+  }
+
+  .start-survey-button:hover,
+  .ai-survey-button:hover,
+  .architecture-button:hover,
+  .design-test-button:hover {
+    background-color: Highlight;
+    color: HighlightText;
+  }
+} 

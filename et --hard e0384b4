@@ -1,0 +1,3 @@
+[33me0384b4[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add VP Panel button to door configuration section and fix door number initialization
+[33md1ff7ba[m Updated dependencies and fixed server configuration
+[33m1c1cbfb[m Initial commit: Fire Door Survey App with React frontend and Node.js backend

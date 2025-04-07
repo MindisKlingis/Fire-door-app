@@ -8,6 +8,9 @@ import SurveyTracker from './SurveyTracker';
 import './FireDoorSurveyForm.css';
 import LocationSelector from './LocationSelector';
 import { updateSurvey, createSurvey, fetchSurveys, uploadSurveyPhoto } from '../api/surveyApi';
+import exportToExcel from '../utils/excelExport';
+import { getAllSurveys, saveSurvey } from '../utils/db';
+import { clearAllSurveys } from '../utils/db';
 
 const API_BASE_URL = 'http://localhost:5001';
 
@@ -685,52 +688,33 @@ const FireDoorSurveyForm = () => {
   };
 
   const initialFormState = {
-    doorPinNo: 1,
+    doorPinNo: '1',
     floor: '',
     room: '',
     locationOfDoorSet: '',
     doorType: '',
+    doorMaterial: { type: '' },
+    rating: '',
+    thirdPartyCertification: { type: '' },
+    surveyed: false,
+    isFlagged: false,
+    
+    // Door Configuration
     doorConfiguration: {
       type: '',
       hasFanLight: false,
       hasSidePanels: false,
       hasVPPanel: false
     },
-    doorMaterial: {
-      type: '',
-      customType: ''
-    },
-    rating: 'FD30s',
-    thirdPartyCertification: {
-      type: '',
-      customText: '',
-      photo: null,
-      photoUrl: null
-    },
-    surveyed: '',
-    surveyedReason: '',
-    surveyedCustomReason: '',
-    isFlagged: false,
+    
+    // Measurements and Photos
+    leafThickness: '',
     leafGap: {
-      hingeSide: {
-        start: '',
-        end: ''
-      },
-      topGap: {
-        start: '',
-        end: ''
-      },
-      leadingEdge: {
-        start: '',
-        end: ''
-      },
-      thresholdGap: {
-        start: '',
-        end: ''
-      }
+      hingeSide: { start: '', end: '' },
+      topGap: { start: '', end: '' },
+      leadingEdge: { start: '', end: '' },
+      thresholdGap: { start: '', end: '' }
     },
-    thresholdGap: '',
-    showExtendedThresholdGap: false,
     measurements: {
       hingeSidePhoto: null,
       hingeSidePhotoUrl: null,
@@ -741,100 +725,53 @@ const FireDoorSurveyForm = () => {
       thresholdGapPhoto: null,
       thresholdGapPhotoUrl: null,
       leafThicknessPhoto: null,
-      leafThicknessPhotoUrl: null,
+      leafThicknessPhotoUrl: null
     },
-    leafThickness: '',
-    combinedStripsCondition: '',
-    combinedStripsDefect: '',
-    selfCloserFunctional: '',
-    selfCloserDefect: '',
-    selfCloserCustomDefect: '',
-    hingesCondition: '',
-    hingesDefect: '',
-    hingesCustomDefect: '',
-    frameCondition: '',
-    frameDefect: '',
-    frameCustomDefect: '',
-    // New multi-defect fields
+    
+    // Condition Assessments
+    frameCondition: 'Not Assessed',
     frameDefects: [],
+    
+    leafCondition: 'Not Assessed',
     leafDefects: [],
+    
+    alignment: 'Not Assessed',
     alignmentDefects: [],
+    
+    handlesSufficient: 'Not Assessed',
     handlesDefects: [],
+    
+    lockCondition: 'Not Assessed',
     lockDefects: [],
+    
+    signageSatisfactory: 'Not Assessed',
     signageDefects: [],
+    
+    hingesCondition: 'Not Assessed',
     hingesDefects: [],
+    
+    thresholdSeal: 'Not Assessed',
     thresholdDefects: [],
-    combinedStripsDefects: [],
-    selfCloserDefects: [],
+    
+    // Add these fields explicitly
+    sealsCondition: 'Not Assessed',
+    sealsDefects: [],
+    
+    closerCondition: 'Not Assessed',
+    closerDefects: [],
+    
+    furnitureCondition: 'Not Assessed',
     furnitureDefects: [],
+    
+    glazingCondition: 'Not Assessed',
     glazingDefects: [],
-    handlesSufficient: '',
-    handlesDefect: '',
-    handlesCustomDefect: '',
-    signageSatisfactory: '',
-    signageDefect: '',
-    signageCustomDefect: '',
-    doorGuardWorking: '',
-    glazingSufficient: '',
-    glazingDefect: '',
-    glazingCustomDefect: '',
-    glazingBeading: '',
-    glazing30Minutes: '',
-    fanLightsSufficient: '',
-    fanLightsDefect: '',
-    fanLightsCustomDefect: '',
-    headerPanelsSufficient: '',
-    upgradeReplacement: '',
+    
+    // Final Assessment
     overallCondition: '',
-    addDetail: '',
+    upgradeReplacement: '',
     conditionDetails: {
-      leafGap: '',
-      thresholdGap: '',
       notes: ''
-    },
-    defectPhotos: {
-      frame: null,
-      handles: null,
-      signage: null,
-      selfCloser: null,
-      hinges: null,
-      glazing: null,
-      fanLights: null,
-      combinedStrips: null,
-      // New photo types
-      leaf: null,
-      alignment: null, 
-      lock: null,
-      threshold: null,
-      furniture: null
-    },
-    combinedStripsPhoto: null,
-    combinedStripsPhotoUrl: null,
-    roomType: '',
-    
-    // New condition assessment fields 
-    leafCondition: '',
-    leafDefect: '',
-    
-    alignment: '',
-    alignmentDefect: '',
-    
-    lockCondition: '',
-    lockDefect: '',
-    
-    thresholdSeal: '',
-    thresholdDefect: '',
-    
-    hingesCondition: '',
-    hingesDefect: '',
-    hingesCustomDefect: '',
-    
-    selfCloserFunctional: '',
-    selfCloserDefect: '',
-    selfCloserCustomDefect: '',
-    
-    furnitureCondition: '',
-    furnitureDefect: '',
+    }
   };
   
   const [formData, setFormData] = useState(initialFormState);
@@ -1509,8 +1446,35 @@ const FireDoorSurveyForm = () => {
   };
 
   const handleOptionClick = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    setError('');
+    // Create a copy of the current form data
+    const updatedFormData = { ...formData };
+
+    // Update the specific field
+    updatedFormData[field] = value;
+
+    // Special handling for condition fields that have defects
+    if (field === 'leafCondition' || field === 'thresholdSeal' || 
+        field === 'furnitureCondition' || field === 'alignment') {
+      // If value is 'No', initialize empty defects array if it doesn't exist
+      if (value === 'No') {
+        const defectsField = `${field}Defects`;
+        if (!updatedFormData[defectsField]) {
+          updatedFormData[defectsField] = [];
+        }
+      }
+    }
+
+    // Update the form data state
+    setFormData(updatedFormData);
+
+    // Clear validation error for this field if it exists
+    if (validationErrors[field]) {
+      setValidationErrors(prev => {
+        const updated = { ...prev };
+        delete updated[field];
+        return updated;
+      });
+    }
   };   
 
   const handleDrawingUpload = async (event) => {
@@ -1532,32 +1496,71 @@ const FireDoorSurveyForm = () => {
     }));
   };
 
-  const handlePhotoUpload = async (photoType, file) => {
-    if (!surveyId) {
-      setTempPhotos(prev => ({ ...prev, [photoType]: file }));
-      setUploadedPhotos(prev => ({ ...prev, [photoType]: true }));
-      return;
+  // Update the handlePhotoUpload function
+  const handlePhotoUpload = async (photoType, event) => {
+    const file = event.target.files[0];
+    if (file) {
+      try {
+        // Create URL for preview
+        const photoUrl = URL.createObjectURL(file);
+        
+        // Update form data with new photo
+        setFormData(prev => ({
+          ...prev,
+          measurements: {
+            ...(prev.measurements || {}),  // Ensure measurements object exists
+            [`${photoType}Photo`]: file,
+            [`${photoType}PhotoUrl`]: photoUrl
+          }
+        }));
+        
+        // Store in temp photos if needed
+        if (!surveyId) {
+          setTempPhotos(prev => ({ ...prev, [photoType]: file }));
+          setUploadedPhotos(prev => ({ ...prev, [photoType]: true }));
+        }
+      } catch (error) {
+        console.error('Error handling photo upload:', error);
+        setError('Error uploading photo: ' + error.message);
+      }
     }
+  };
 
+  // Keep the first handleRemovePhoto function (around line 1530)
+  const handleRemovePhoto = (photoType) => {
     try {
-      const formData = new FormData();
-      formData.append('photo', file);
-      formData.append('photoType', photoType);
+      // Clear the photo from form data
+      setFormData(prev => ({
+        ...prev,
+        measurements: {
+          ...(prev.measurements || {}),
+          [`${photoType}Photo`]: null,
+          [`${photoType}PhotoUrl`]: null
+        }
+      }));
 
-      const response = await fetch(`${API_BASE_URL}/api/surveys/${surveyId}/photos`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload photo');
+      // Clear from temp photos if it exists
+      if (tempPhotos[photoType]) {
+        setTempPhotos(prev => {
+          const newTempPhotos = { ...prev };
+          delete newTempPhotos[photoType];
+          return newTempPhotos;
+        });
       }
 
-      setUploadedPhotos(prev => ({ ...prev, [photoType]: true }));
-      setError('Photo uploaded successfully!');
+      // Update uploaded photos state
+      setUploadedPhotos(prev => ({
+        ...prev,
+        [photoType]: false
+      }));
+
+      // If there was a URL created, revoke it to prevent memory leaks
+      if (formData.measurements?.[`${photoType}PhotoUrl`]) {
+        URL.revokeObjectURL(formData.measurements[`${photoType}PhotoUrl`]);
+      }
     } catch (error) {
-      console.error('Error uploading photo:', error);
-      setError('Failed to upload photo. Please try again.');
+      console.error('Error removing photo:', error);
+      setError('Error removing photo: ' + error.message);
     }
   };
 
@@ -1706,231 +1709,235 @@ const FireDoorSurveyForm = () => {
   // Modify loadSurveyData to handle multi-defect format
   const loadSurveyData = async (doorNumber) => {
     try {
-      // Try to get from IndexedDB first
-      const cachedSurvey = await getSurveyFromIndexedDB(doorNumber);
+      console.log('Loading survey data for door:', doorNumber);
+      // Instead of using a door-specific endpoint, get all surveys and filter locally
+      console.log(`Fetching all surveys to find door number ${doorNumber}`);
       
-      if (cachedSurvey) {
-        console.log('Found survey in IndexedDB:', cachedSurvey);
-        setIsEditing(true);
-        setSurveyId(cachedSurvey._id);
-
-        // Parse condition details if it's a string
-        let parsedConditionDetails = cachedSurvey.conditionDetails;
-        if (typeof cachedSurvey.conditionDetails === 'string') {
-          try {
-            parsedConditionDetails = JSON.parse(cachedSurvey.conditionDetails);
-            console.log('Loaded notes:', parsedConditionDetails.notes); // Add logging
-          } catch (e) {
-            console.error('Error parsing condition details:', e);
-            parsedConditionDetails = {
-              leafGap: {},
-              thresholdGap: '',
-              notes: ''
-            };
-          }
-        }
-
-        // Set form data with all fields from cached survey
-        setFormData({
-          ...formData,  // Keep default structure
-          ...cachedSurvey,  // Override with saved data
-          doorPinNo: parseInt(cachedSurvey.doorNumber),
-          conditionDetails: {
-            leafGap: parsedConditionDetails.leafGap || {},
-            thresholdGap: parsedConditionDetails.thresholdGap || '',
-            notes: parsedConditionDetails.notes || ''  // Ensure notes are loaded
-          },
-          leafThickness: cachedSurvey.leafThickness || '',
-          floor: cachedSurvey.floor || '',
-          room: cachedSurvey.room || '',
-          locationOfDoorSet: cachedSurvey.locationOfDoorSet || '',
-          doorType: cachedSurvey.doorType || '',
-          doorConfiguration: cachedSurvey.doorConfiguration || {
-            type: '',
-            hasFanLight: false,
-            hasSidePanels: false,
-            hasVPPanel: false
-          },
-          doorMaterial: cachedSurvey.doorMaterial || {
-            type: '',
-            customType: ''
-          },
-          rating: cachedSurvey.rating || 'FD30s',
-          thirdPartyCertification: cachedSurvey.thirdPartyCertification || {
-            type: '',
-            customText: '',
-            photo: null,
-            photoUrl: null
-          },
-          surveyed: cachedSurvey.surveyed || '',
-          surveyedReason: cachedSurvey.surveyedReason || '',
-          surveyedCustomReason: cachedSurvey.surveyedCustomReason || '',
-          isFlagged: cachedSurvey.isFlagged || false,
-          leafGap: parsedConditionDetails.leafGap || {
-            hingeSide: { start: '', end: '' },
-            topGap: { start: '', end: '' },
-            leadingEdge: { start: '', end: '' },
-            thresholdGap: { start: '', end: '' }
-          },
-          thresholdGap: parsedConditionDetails.thresholdGap || '',
-          measurements: cachedSurvey.measurements || {
-            hingeSidePhoto: null,
-            hingeSidePhotoUrl: null,
-            topGapPhoto: null,
-            topGapPhotoUrl: null,
-            leadingEdgePhoto: null,
-            leadingEdgePhotoUrl: null,
-            thresholdGapPhoto: null,
-            thresholdGapPhotoUrl: null,
-            leafThicknessPhoto: null,
-            leafThicknessPhotoUrl: null
-          },
-          frameCondition: cachedSurvey.frameCondition || '',
-          frameDefect: cachedSurvey.frameDefect || '',
-          frameCustomDefect: cachedSurvey.frameCustomDefect || '',
-          handlesSufficient: cachedSurvey.handlesSufficient || '',
-          handlesDefect: cachedSurvey.handlesDefect || '',
-          handlesCustomDefect: cachedSurvey.handlesCustomDefect || '',
-          signageSatisfactory: cachedSurvey.signageSatisfactory || '',
-          signageDefect: cachedSurvey.signageDefect || '',
-          signageCustomDefect: cachedSurvey.signageCustomDefect || '',
-          combinedStripsCondition: cachedSurvey.combinedStripsCondition || '',
-          combinedStripsDefect: cachedSurvey.combinedStripsDefect || '',
-          combinedStripsCustomDefect: cachedSurvey.combinedStripsCustomDefect || '',
-          selfCloserFunctional: cachedSurvey.selfCloserFunctional || '',
-          selfCloserDefect: cachedSurvey.selfCloserDefect || '',
-          selfCloserCustomDefect: cachedSurvey.selfCloserCustomDefect || '',
-          hingesCondition: cachedSurvey.hingesCondition || '',
-          hingesDefect: cachedSurvey.hingesDefect || '',
-          hingesCustomDefect: cachedSurvey.hingesCustomDefect || '',
-          glazingSufficient: cachedSurvey.glazingSufficient || '',
-          glazingDefect: cachedSurvey.glazingDefect || '',
-          glazingCustomDefect: cachedSurvey.glazingCustomDefect || '',
-          glazingBeading: cachedSurvey.glazingBeading || '',
-          glazing30Minutes: cachedSurvey.glazing30Minutes || '',
-          upgradeReplacement: cachedSurvey.upgradeReplacement || '',
-          overallCondition: cachedSurvey.overallCondition || '',
-          height: cachedSurvey.height || '',
-          width: cachedSurvey.width || '',
-          depth: cachedSurvey.depth || ''
-        });
-        return;
+      const response = await fetch('http://localhost:5001/api/surveys');
+      
+      if (!response.ok) {
+        console.error(`API response not ok: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch surveys: ${response.status}`);
       }
-
-      // If not in IndexedDB, try server
-      const survey = allSurveys.find(s => s.doorNumber === doorNumber.toString());
       
-      if (survey) {
-        console.log('Found survey on server:', survey);
+      const allSurveys = await response.json();
+      console.log(`Loaded ${allSurveys.length} surveys, searching for door #${doorNumber}`);
+
+      // Find the survey with the matching door number
+      const survey = allSurveys.find(s => 
+        String(s.doorNumber) === String(doorNumber) || 
+        parseInt(s.doorNumber) === parseInt(doorNumber)
+      );
+
+      if (survey && survey._id) {
+        console.log('Found survey for door #' + doorNumber + ':', survey);
+        console.log('CRITICAL FIELDS STATUS:');
+        console.log('leafCondition:', survey.leafCondition);
+        console.log('leafDefects:', survey.leafDefects);
+        console.log('thresholdSeal:', survey.thresholdSeal);
+        console.log('thresholdDefects:', survey.thresholdDefects);
+        console.log('furnitureCondition:', survey.furnitureCondition);
+        console.log('furnitureDefects:', survey.furnitureDefects);
+        
+        // Critical fields workaround: directly set these values to ensure they exist
+        // If they're null/undefined but we have defects, set them to "No"
+        // Otherwise, default to "Yes" which is the expected state for passing items
+        if (survey.leafDefects && survey.leafDefects.length > 0) {
+          survey.leafCondition = "No";
+        } else if (survey.leafCondition === undefined || survey.leafCondition === null) {
+          survey.leafCondition = "Yes";
+        }
+        
+        if (survey.thresholdDefects && survey.thresholdDefects.length > 0) {
+          survey.thresholdSeal = "No";
+        } else if (survey.thresholdSeal === undefined || survey.thresholdSeal === null) {
+          survey.thresholdSeal = "Yes";
+        }
+        
+        if (survey.furnitureDefects && survey.furnitureDefects.length > 0) {
+          survey.furnitureCondition = "No";
+        } else if (survey.furnitureCondition === undefined || survey.furnitureCondition === null) {
+          survey.furnitureCondition = "Yes";
+        }
+        
         setIsEditing(true);
         setSurveyId(survey._id);
         
-        // Parse condition details if it's a string
-        let parsedConditionDetails = survey.conditionDetails;
-        if (typeof survey.conditionDetails === 'string') {
+        // Parse condition details
+        let parsedConditionDetails = { leafGap: {}, thresholdGap: '', notes: '' };
+        if (survey.conditionDetails) {
           try {
+            if (typeof survey.conditionDetails === 'string') {
             parsedConditionDetails = JSON.parse(survey.conditionDetails);
-            console.log('Server survey - loaded notes:', parsedConditionDetails.notes);
+            } else {
+              parsedConditionDetails = survey.conditionDetails;
+            }
+            console.log('Parsed condition details:', parsedConditionDetails);
+            
+            // Extract defects from parsed condition details if they exist
+            if (parsedConditionDetails.defects) {
+              const defects = parsedConditionDetails.defects;
+              console.log('Extracted defects from condition details:', defects);
+              
+              // Merge these defects into the survey object
+              Object.keys(defects).forEach(key => {
+                const defectsKey = `${key}Defects`;
+                if (Array.isArray(defects[key])) {
+                  survey[defectsKey] = defects[key];
+                }
+              });
+            }
           } catch (e) {
-            console.error('Error parsing condition details from server:', e);
-            parsedConditionDetails = {
-              leafGap: {},
-              thresholdGap: '',
-              notes: ''
-            };
+            console.error('Error parsing condition details:', e);
           }
         }
 
-        // Set form data with all fields from server survey
-        setFormData({
-          ...formData,  // Keep default structure
-          ...survey,    // Override with saved data
-          doorPinNo: parseInt(survey.doorNumber),
-          conditionDetails: {
+        // Create a new object with the initial state first
+        const newFormData = { ...initialFormState };
+        
+        // Now update it with the survey data
+        Object.keys(survey).forEach(key => {
+          // Skip the _id field and handle special cases separately
+          if (key !== '_id' && key !== 'conditionDetails') {
+            newFormData[key] = survey[key];
+          }
+        });
+
+        // Make sure doorPinNo is a number
+        newFormData.doorPinNo = parseInt(survey.doorNumber || doorNumber);
+        
+        // Ensure all condition assessment fields are explicitly set
+        // This is important - we need to handle each field individually
+        // If the condition field is empty but there are defects, set it to 'No'
+        newFormData.frameCondition = survey.frameCondition || (survey.frameDefects?.length > 0 ? 'No' : '');
+        newFormData.leafCondition = survey.leafCondition || (survey.leafDefects?.length > 0 ? 'No' : '');
+        newFormData.alignment = survey.alignment || (survey.alignmentDefects?.length > 0 ? 'No' : '');
+        newFormData.handlesSufficient = survey.handlesSufficient || (survey.handlesDefects?.length > 0 ? 'No' : '');
+        newFormData.lockCondition = survey.lockCondition || (survey.lockDefects?.length > 0 ? 'No' : '');
+        newFormData.signageSatisfactory = survey.signageSatisfactory || (survey.signageDefects?.length > 0 ? 'No' : '');
+        newFormData.hingesCondition = survey.hingesCondition || (survey.hingesDefects?.length > 0 ? 'No' : '');
+        newFormData.thresholdSeal = survey.thresholdSeal || (survey.thresholdDefects?.length > 0 ? 'No' : '');
+        newFormData.combinedStripsCondition = survey.combinedStripsCondition || (survey.combinedStripsDefects?.length > 0 ? 'No' : '');
+        newFormData.selfCloserFunctional = survey.selfCloserFunctional || (survey.selfCloserDefects?.length > 0 ? 'No' : '');
+        newFormData.furnitureCondition = survey.furnitureCondition || (survey.furnitureDefects?.length > 0 ? 'No' : '');
+        newFormData.glazingSufficient = survey.glazingSufficient || (survey.glazingDefects?.length > 0 ? 'No' : '');
+        
+        // Handle defects arrays properly - ensure they're always arrays
+        newFormData.frameDefects = Array.isArray(survey.frameDefects) ? survey.frameDefects : [];
+        newFormData.leafDefects = Array.isArray(survey.leafDefects) ? survey.leafDefects : [];
+        newFormData.alignmentDefects = Array.isArray(survey.alignmentDefects) ? survey.alignmentDefects : [];
+        newFormData.handlesDefects = Array.isArray(survey.handlesDefects) ? survey.handlesDefects : [];
+        newFormData.lockDefects = Array.isArray(survey.lockDefects) ? survey.lockDefects : [];
+        newFormData.signageDefects = Array.isArray(survey.signageDefects) ? survey.signageDefects : [];
+        newFormData.hingesDefects = Array.isArray(survey.hingesDefects) ? survey.hingesDefects : [];
+        newFormData.thresholdDefects = Array.isArray(survey.thresholdDefects) ? survey.thresholdDefects : [];
+        newFormData.combinedStripsDefects = Array.isArray(survey.combinedStripsDefects) ? survey.combinedStripsDefects : [];
+        newFormData.selfCloserDefects = Array.isArray(survey.selfCloserDefects) ? survey.selfCloserDefects : [];
+        newFormData.furnitureDefects = Array.isArray(survey.furnitureDefects) ? survey.furnitureDefects : [];
+        newFormData.glazingDefects = Array.isArray(survey.glazingDefects) ? survey.glazingDefects : [];
+        
+        // Set the condition details
+        newFormData.conditionDetails = {
             leafGap: parsedConditionDetails.leafGap || {},
             thresholdGap: parsedConditionDetails.thresholdGap || '',
-            notes: parsedConditionDetails.notes || ''  // Ensure notes are loaded
-          },
-          leafThickness: survey.leafThickness || '',
-          floor: survey.floor || '',
-          room: survey.room || '',
-          locationOfDoorSet: survey.locationOfDoorSet || '',
-          doorType: survey.doorType || '',
-          doorConfiguration: survey.doorConfiguration || {
+          notes: parsedConditionDetails.notes || ''
+        };
+        
+        // Ensure door configuration fields are properly set
+        newFormData.doorConfiguration = survey.doorConfiguration || {
             type: '',
             hasFanLight: false,
             hasSidePanels: false,
             hasVPPanel: false
-          },
-          doorMaterial: survey.doorMaterial || {
-            type: '',
-            customType: ''
-          },
-          rating: survey.rating || 'FD30s',
-          thirdPartyCertification: survey.thirdPartyCertification || {
-            type: '',
-            customText: '',
-            photo: null,
-            photoUrl: null
-          },
-          surveyed: survey.surveyed || '',
-          surveyedReason: survey.surveyedReason || '',
-          surveyedCustomReason: survey.surveyedCustomReason || '',
-          isFlagged: survey.isFlagged || false,
-          leafGap: parsedConditionDetails.leafGap || {
-            hingeSide: { start: '', end: '' },
-            topGap: { start: '', end: '' },
-            leadingEdge: { start: '', end: '' },
-            thresholdGap: { start: '', end: '' }
-          },
-          thresholdGap: parsedConditionDetails.thresholdGap || '',
-          measurements: survey.measurements || {
-            hingeSidePhoto: null,
-            hingeSidePhotoUrl: null,
-            topGapPhoto: null,
-            topGapPhotoUrl: null,
-            leadingEdgePhoto: null,
-            leadingEdgePhotoUrl: null,
-            thresholdGapPhoto: null,
-            thresholdGapPhotoUrl: null,
-            leafThicknessPhoto: null,
-            leafThicknessPhotoUrl: null
-          },
-          frameCondition: survey.frameCondition || '',
-          frameDefect: survey.frameDefect || '',
-          frameCustomDefect: survey.frameCustomDefect || '',
-          handlesSufficient: survey.handlesSufficient || '',
-          handlesDefect: survey.handlesDefect || '',
-          handlesCustomDefect: survey.handlesCustomDefect || '',
-          signageSatisfactory: survey.signageSatisfactory || '',
-          signageDefect: survey.signageDefect || '',
-          signageCustomDefect: survey.signageCustomDefect || '',
-          combinedStripsCondition: survey.combinedStripsCondition || '',
-          combinedStripsDefect: survey.combinedStripsDefect || '',
-          combinedStripsCustomDefect: survey.combinedStripsCustomDefect || '',
-          selfCloserFunctional: survey.selfCloserFunctional || '',
-          selfCloserDefect: survey.selfCloserDefect || '',
-          selfCloserCustomDefect: survey.selfCloserCustomDefect || '',
-          hingesCondition: survey.hingesCondition || '',
-          hingesDefect: survey.hingesDefect || '',
-          hingesCustomDefect: survey.hingesCustomDefect || '',
-          glazingSufficient: survey.glazingSufficient || '',
-          glazingDefect: survey.glazingDefect || '',
-          glazingCustomDefect: survey.glazingCustomDefect || '',
-          glazingBeading: survey.glazingBeading || '',
-          glazing30Minutes: survey.glazing30Minutes || '',
-          upgradeReplacement: survey.upgradeReplacement || '',
-          overallCondition: survey.overallCondition || '',
-          height: survey.height || '',
-          width: survey.width || '',
-          depth: survey.depth || ''
+        };
+        
+        // Ensure other required fields are set
+        newFormData.rating = survey.rating || 'FD30s';
+        newFormData.overallCondition = survey.overallCondition || '';
+        newFormData.upgradeReplacement = survey.upgradeReplacement || '';
+
+        // Make an extra effort to preserve these fields that aren't loading correctly
+        if (parsedConditionDetails.defects && parsedConditionDetails.defects.leaf) {
+          if (parsedConditionDetails.defects.leaf.length > 0) {
+            newFormData.leafCondition = 'No';
+            newFormData.leafDefects = parsedConditionDetails.defects.leaf;
+          } else if (survey.leafCondition) {
+            newFormData.leafCondition = survey.leafCondition;
+          }
+        }
+        
+        if (parsedConditionDetails.defects && parsedConditionDetails.defects.threshold) {
+          if (parsedConditionDetails.defects.threshold.length > 0) {
+            newFormData.thresholdSeal = 'No';
+            newFormData.thresholdDefects = parsedConditionDetails.defects.threshold;
+          } else if (survey.thresholdSeal) {
+            newFormData.thresholdSeal = survey.thresholdSeal;
+          }
+        }
+        
+        if (parsedConditionDetails.defects && parsedConditionDetails.defects.furniture) {
+          if (parsedConditionDetails.defects.furniture.length > 0) {
+            newFormData.furnitureCondition = 'No';
+            newFormData.furnitureDefects = parsedConditionDetails.defects.furniture;
+          } else if (survey.furnitureCondition) {
+            newFormData.furnitureCondition = survey.furnitureCondition;
+          }
+        }
+        
+        // Double check manually to make sure we have the condition assessment fields
+        if (!newFormData.leafCondition && survey.leafCondition) {
+          newFormData.leafCondition = survey.leafCondition;
+        }
+        if (!newFormData.thresholdSeal && survey.thresholdSeal) {
+          newFormData.thresholdSeal = survey.thresholdSeal;
+        }
+        if (!newFormData.furnitureCondition && survey.furnitureCondition) {
+          newFormData.furnitureCondition = survey.furnitureCondition;
+        }
+
+        console.log('Final form data after processing:', {
+          leafCondition: newFormData.leafCondition,
+          leafDefects: newFormData.leafDefects,
+          thresholdSeal: newFormData.thresholdSeal,
+          thresholdDefects: newFormData.thresholdDefects,
+          furnitureCondition: newFormData.furnitureCondition,
+          furnitureDefects: newFormData.furnitureDefects
         });
+        
+        // Check localStorage for fallback condition data
+        const fallbackData = localStorage.getItem(`door-${doorNumber}-condition`);
+        if (fallbackData) {
+          try {
+            const parsedFallback = JSON.parse(fallbackData);
+            // Only use fallback for undefined/null fields
+            if (newFormData.leafCondition === undefined || newFormData.leafCondition === null) {
+              newFormData.leafCondition = parsedFallback.leafCondition;
+              console.log('Applied leafCondition fallback:', parsedFallback.leafCondition);
+            }
+            if (newFormData.thresholdSeal === undefined || newFormData.thresholdSeal === null) {
+              newFormData.thresholdSeal = parsedFallback.thresholdSeal;
+              console.log('Applied thresholdSeal fallback:', parsedFallback.thresholdSeal);
+            }
+            if (newFormData.furnitureCondition === undefined || newFormData.furnitureCondition === null) {
+              newFormData.furnitureCondition = parsedFallback.furnitureCondition;
+              console.log('Applied furnitureCondition fallback:', parsedFallback.furnitureCondition);
+            }
+            // Add this new block for alignment
+            if (newFormData.alignment === undefined || newFormData.alignment === null) {
+              newFormData.alignment = parsedFallback.alignment;
+              console.log('Applied alignment fallback:', parsedFallback.alignment);
+            }
+          } catch (e) {
+            console.error('Error parsing fallback data:', e);
+          }
+        }
+        
+        setFormData(newFormData);
       } else {
+        console.log(`No survey found for door #${doorNumber}, creating new survey.`);
         // Reset form for new survey
         setIsEditing(false);
         setSurveyId(null);
-        
-        // Completely reset the form with initial state for a new door
         setFormData({
           ...initialFormState,
           doorPinNo: doorNumber
@@ -1939,6 +1946,13 @@ const FireDoorSurveyForm = () => {
     } catch (error) {
       console.error('Error loading survey:', error);
       setError('Failed to load survey data');
+      // When there's an error, reset to a clean state
+      setIsEditing(false);
+      setSurveyId(null);
+      setFormData({
+        ...initialFormState,
+        doorPinNo: doorNumber
+      });
     }
   };
 
@@ -2204,140 +2218,142 @@ const FireDoorSurveyForm = () => {
   // Modify handleSave function to include multiple defects
   const handleSave = async () => {
     try {
-      console.log('Starting save process...');
-      console.log('Current notes:', formData.conditionDetails?.notes);
       setIsSaving(true);
-      
-      const currentDoorNumber = parseInt(formData.doorPinNo || 1);
+      setError('Saving survey...');
       
       // Store current values for quick select buttons
       const currentFloor = formData.floor;
       const currentRoom = formData.room;
-      
-      // Create a simplified version of the condition details
-      const conditionDetailsForSave = {
-        leafGap: {
-          hingeSide: formData.leafGap?.hingeSide || { start: '', end: '' },
-          topGap: formData.leafGap?.topGap || { start: '', end: '' },
-          leadingEdge: formData.leafGap?.leadingEdge || { start: '', end: '' },
-          thresholdGap: formData.leafGap?.thresholdGap || { start: '', end: '' }
-        },
-        thresholdGap: formData.thresholdGap || '',
-        notes: formData.conditionDetails?.notes || '',
-        // Add multi-defect information
-        defects: {
-          frame: formData.frameDefects || [],
-          leaf: formData.leafDefects || [],
-          alignment: formData.alignmentDefects || [],
-          handles: formData.handlesDefects || [],
-          lock: formData.lockDefects || [],
-          signage: formData.signageDefects || [],
-          hinges: formData.hingesDefects || [],
-          threshold: formData.thresholdDefects || [],
-          combinedStrips: formData.combinedStripsDefects || [],
-          selfCloser: formData.selfCloserDefects || [],
-          furniture: formData.furnitureDefects || [],
-          glazing: formData.glazingDefects || []
-        }
-      };
+      const currentDoorNumber = parseInt(formData.doorPinNo);
 
-      console.log('Saving condition details:', conditionDetailsForSave);
-
-      // Create a copy of the form data to preserve all fields
+      // Create the survey object
       const surveyData = {
-        ...formData,
-        doorNumber: String(currentDoorNumber),
-        leafThickness: String(formData.leafThickness || ''),
-        conditionDetails: JSON.stringify(conditionDetailsForSave)
+        doorPinNo: String(formData.doorPinNo || ''),
+        floor: formData.floor || '',
+        room: formData.room || '',
+        locationOfDoorSet: formData.locationOfDoorSet || '',
+        doorType: formData.doorType || '',
+        doorMaterial: formData.doorMaterial || {},
+        rating: formData.rating || '',
+        thirdPartyCertification: formData.thirdPartyCertification || {},
+        surveyed: formData.surveyed || false,
+        isFlagged: formData.isFlagged || false,
+        
+        // Door Configuration
+        doorConfiguration: formData.doorConfiguration || {},
+        
+        // Measurements
+        leafThickness: formData.leafThickness || '',
+        leafGap: formData.leafGap || {},
+        
+        // Condition Assessments
+        frameCondition: formData.frameCondition || '',
+        frameDefects: formData.frameDefects || [],
+        leafCondition: formData.leafCondition || '',
+        leafDefects: formData.leafDefects || [],
+        alignment: formData.alignment || '',
+        alignmentDefects: formData.alignmentDefects || [],
+        handlesSufficient: formData.handlesSufficient || '',
+        handlesDefects: formData.handlesDefects || [],
+        lockCondition: formData.lockCondition || '',
+        lockDefects: formData.lockDefects || [],
+        signageSatisfactory: formData.signageSatisfactory || '',
+        signageDefects: formData.signageDefects || [],
+        hingesCondition: formData.hingesCondition || '',
+        hingesDefects: formData.hingesDefects || [],
+        thresholdSeal: formData.thresholdSeal || '',
+        thresholdDefects: formData.thresholdDefects || [],
+        combinedStripsCondition: formData.combinedStripsCondition || '',
+        combinedStripsDefects: formData.combinedStripsDefects || [],
+        closerCondition: formData.selfCloserFunctional || '',  // Map selfCloserFunctional to closerCondition
+        closerDefects: formData.selfCloserDefects || [],  // Map selfCloserDefects to closerDefects
+        furnitureCondition: formData.furnitureCondition || '',
+        furnitureDefects: formData.furnitureDefects || [],
+        glazingSufficient: formData.glazingSufficient || '',
+        glazingDefects: formData.glazingDefects || [],
+        
+        // Final Assessment
+        overallCondition: formData.overallCondition || '',
+        upgradeReplacement: formData.upgradeReplacement || '',
+        conditionDetails: formData.conditionDetails || {}
       };
 
-      console.log('Full survey data being saved:', surveyData);
+      // Save to IndexedDB
+      await saveSurvey(surveyData);
+      console.log('Survey saved to IndexedDB:', surveyData);
 
-      // Determine if this is an update or new survey
-      const isUpdate = isEditing && surveyId;
-      const url = isUpdate 
-        ? `http://localhost:5001/api/surveys/${surveyId}`
-        : 'http://localhost:5001/api/surveys';
-      const method = isUpdate ? 'PUT' : 'POST';
-
-      // Save to server
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(surveyData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to ${isUpdate ? 'update' : 'save'} survey to server`);
-      }
-
-      const savedSurvey = await response.json();
-      console.log('Saved survey response:', savedSurvey);
-
-      // Save to IndexedDB after successful server save
-      await addSurveyToIndexedDB(surveyData);
-
-      // Update surveyed doors list
+      // Update surveyed doors list with the current door
       const doorInfo = {
         doorNumber: String(currentDoorNumber),
         isFlagged: Boolean(formData.isFlagged)
       };
 
+      // Update the surveyed doors list, ensuring we don't have duplicates
       setSurveyedDoorsList(prev => {
-        const filteredList = prev.filter(door => 
-          String(door.doorNumber) !== String(currentDoorNumber)
-        );
-        return [...filteredList, doorInfo];
+        const filteredList = prev.filter(door => String(door.doorNumber) !== String(currentDoorNumber));
+        const updatedList = [...filteredList, doorInfo];
+        // Sort the list by door number
+        return updatedList.sort((a, b) => parseInt(a.doorNumber) - parseInt(b.doorNumber));
       });
 
-      // Update allSurveys state
-      const updatedSurveys = await fetch('http://localhost:5001/api/surveys').then(res => res.json());
+      // Show success message
+      setError('Survey saved successfully!');
+
+      // Reset form for new survey
+      const nextDoorNumber = currentDoorNumber + 1;
+      
+      // Save previous values for quick select buttons
+      setPreviousFloor(currentFloor);
+      setPreviousRoom(currentRoom);
+      
+      // Reset form with initial state and new door number
+      setFormData({
+        ...initialFormState,
+        doorPinNo: nextDoorNumber
+      });
+      
+      // Reset other states
+      setIsEditing(false);
+      setSurveyId(null);
+      setCurrentDoor(nextDoorNumber);
+      setIsSurveySaved(true); // Set this to true to indicate successful save
+      
+      // Reset uploaded photos
+      setUploadedPhotos(
+        Object.values(PHOTO_TYPES).reduce((acc, type) => ({ ...acc, [type]: false }), {})
+      );
+      setTempPhotos({});
+
+      // Auto-download Excel file with all surveys
+      try {
+        const allSurveys = await getAllSurveys();
+        if (allSurveys && allSurveys.length > 0) {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const filename = `fire_door_surveys_${timestamp}.xlsx`;
+          await exportToExcel(allSurveys, filename);
+          console.log('Auto-downloaded Excel file:', filename);
+        }
+      } catch (exportError) {
+        console.error('Error auto-downloading Excel:', exportError);
+      }
+
+      // Update allSurveys state to reflect the new save
+      const updatedSurveys = await getAllSurveys();
       setAllSurveys(updatedSurveys);
 
-      setIsSurveySaved(true);
-      setError(`Survey ${isUpdate ? 'updated' : 'saved'} successfully!`);
-
-      // Generate Excel file
-      await saveSurveysToWorkbook(updatedSurveys);
-
-      // Auto-backup every 10 surveys
-      if (updatedSurveys.length % 10 === 0) {
-        await autoBackupToExcel();
-      }
-
-      // If this was a new survey, move to next door
-      if (!isUpdate) {
-        // Get the next door number
-        const nextDoorNumber = currentDoorNumber + 1;
-        
-        // Completely reset form with initial state
-        setFormData({
-          ...initialFormState,
-          doorPinNo: nextDoorNumber
-        });
-        
-        // Save previous values for quick select buttons
-        setPreviousFloor(currentFloor);
-        setPreviousRoom(currentRoom);
-        
-        // Clear edit state and other form state
-        setIsEditing(false);
-        setSurveyId(null);
-        setCurrentDoor(nextDoorNumber);
-        setIsSurveySaved(false);
-        
-        // Reset uploaded photos
-        setUploadedPhotos(
-          Object.values(PHOTO_TYPES).reduce((acc, type) => ({ ...acc, [type]: false }), {})
-        );
-        setTempPhotos({});
-      }
+      // Scroll to top of the form
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
       
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setError('');
+      }, 3000);
     } catch (error) {
       console.error('Error saving survey:', error);
-      setError('Failed to save survey. Please try again.');
+      setError('Error saving survey: ' + error.message);
     } finally {
       setIsSaving(false);
     }
@@ -2350,6 +2366,17 @@ const FireDoorSurveyForm = () => {
   const renderOption = (value, isSelected, onClick, key, options = {}) => {
     let className = 'option-button';
     let dataAttributes = {};
+    
+    // Add extra check for condition assessment fields (leafCondition, thresholdSeal, furnitureCondition)
+    // This ensures the selection state is strictly compared
+    if (key && (key.startsWith('leaf-') || key.startsWith('threshold-') || key.startsWith('furniture-'))) {
+      console.log(`Rendering option for ${key} with value=${value}, isSelected=${isSelected}`);
+      
+      // We'll add a data attribute to help debug
+      dataAttributes['data-field'] = key.split('-')[0];
+      dataAttributes['data-value'] = value;
+      dataAttributes['data-selected'] = isSelected ? 'true' : 'false';
+    }
     
     if (options.rangeInfo) {
       const { start, end, currentValue } = options.rangeInfo;
@@ -2529,29 +2556,56 @@ const FireDoorSurveyForm = () => {
   };
 
   const handleClearSurveys = async () => {
-    // Show confirmation dialog
-    if (!window.confirm('WARNING: This will permanently delete all surveys. This action cannot be undone. Are you sure you want to proceed?')) {
-      return;
-    }
-
     try {
-      const response = await axios.delete(`${API_BASE_URL}/api/surveys/clear`);
-      
-      if (response.data.success) {
-        setAllSurveys([]);
+      if (window.confirm('Are you sure you want to clear all surveys? This cannot be undone.')) {
+        setIsSaving(true);
+        setError('Clearing all surveys...');
+
+        // Clear IndexedDB
+        await clearAllSurveys();
+        
+        // Reset all states
         setSurveyedDoorsList([]);
+        setAllSurveys([]);
         setCurrentDoor(1);
-        setFormData(prevData => ({
-          ...resetForm(),
-          doorPinNo: 1
-        }));
-        setError('All surveys cleared successfully');
-      } else {
-        setError(`Failed to clear surveys: ${response.data.message}`);
+        setFormData({
+          ...initialFormState,
+          doorPinNo: '1'
+        });
+        
+        // Reset other states
+        setIsEditing(false);
+        setSurveyId(null);
+        setIsSurveySaved(false);
+        setPreviousFloor('');
+        setPreviousRoom('');
+        
+        // Reset uploaded photos
+        setUploadedPhotos(
+          Object.values(PHOTO_TYPES).reduce((acc, type) => ({ ...acc, [type]: false }), {})
+        );
+        setTempPhotos({});
+
+        // Create empty Excel file to overwrite the old one
+        try {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const filename = `fire_door_surveys_${timestamp}.xlsx`;
+          await exportToExcel([], filename);
+          console.log('Created empty Excel file:', filename);
+        } catch (exportError) {
+          console.error('Error creating empty Excel file:', exportError);
+        }
+
+        setError('All surveys cleared successfully!');
+        setTimeout(() => {
+          setError('');
+        }, 3000);
       }
     } catch (error) {
       console.error('Error clearing surveys:', error);
-      setError('Failed to clear surveys. Please try again.');
+      setError('Error clearing surveys: ' + error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -2852,16 +2906,7 @@ const FireDoorSurveyForm = () => {
     handleInputChange('leafThickness', value);
   };
 
-  const handleRemovePhoto = (photoType) => {
-    setFormData(prev => ({
-      ...prev,
-      measurements: {
-        ...prev.measurements,
-        [`${photoType}Photo`]: null,
-        [`${photoType}PhotoUrl`]: null
-      }
-    }));
-  };
+ 
 
   const handleGapComplete = (type) => {
     // Auto-scroll to next section
@@ -3629,14 +3674,176 @@ const FireDoorSurveyForm = () => {
     }
   }, [isSurveySaved]);
 
+  useEffect(() => {
+    // Add a small delay to let the DOM render first
+    const timeoutId = setTimeout(() => {
+      // Check the logs for undefined/null fields and fix them reactively
+      if ((formData.leafCondition === undefined || formData.leafCondition === null) && 
+          document.querySelector('[data-field="leaf"][data-selected="true"]')) {
+        const selectedValue = document.querySelector('[data-field="leaf"][data-selected="true"]').getAttribute('data-value');
+        console.log('Fixing leafCondition to:', selectedValue);
+        setFormData(prev => ({ ...prev, leafCondition: selectedValue }));
+      }
+      
+      if ((formData.thresholdSeal === undefined || formData.thresholdSeal === null) && 
+          document.querySelector('[data-field="threshold"][data-selected="true"]')) {
+        const selectedValue = document.querySelector('[data-field="threshold"][data-selected="true"]').getAttribute('data-value');
+        console.log('Fixing thresholdSeal to:', selectedValue);
+        setFormData(prev => ({ ...prev, thresholdSeal: selectedValue }));
+      }
+      
+      if ((formData.furnitureCondition === undefined || formData.furnitureCondition === null) && 
+          document.querySelector('[data-field="furniture"][data-selected="true"]')) {
+        const selectedValue = document.querySelector('[data-field="furniture"][data-selected="true"]').getAttribute('data-value');
+        console.log('Fixing furnitureCondition to:', selectedValue);
+        setFormData(prev => ({ ...prev, furnitureCondition: selectedValue }));
+      }
+      
+      // Add this new block to handle alignment
+      if ((formData.alignment === undefined || formData.alignment === null) && 
+          document.querySelector('[data-field="alignment"][data-selected="true"]')) {
+        const selectedValue = document.querySelector('[data-field="alignment"][data-selected="true"]').getAttribute('data-value');
+        console.log('Fixing alignment to:', selectedValue);
+        setFormData(prev => ({ ...prev, alignment: selectedValue }));
+      }
+    }, 500); // 500ms delay to ensure DOM is updated
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.leafCondition, formData.thresholdSeal, formData.furnitureCondition, formData.alignment]);
+
+  // Add this after the other useEffect hooks
+  useEffect(() => {
+    // Persist critical condition fields to localStorage as fallback
+    const criticalFields = {
+      doorPinNo: formData.doorPinNo,
+      leafCondition: formData.leafCondition,
+      thresholdSeal: formData.thresholdSeal,
+      furnitureCondition: formData.furnitureCondition,
+      alignment: formData.alignment // Add this line
+    };
+    
+    // Only save if at least one is defined
+    if (formData.leafCondition || formData.thresholdSeal || formData.furnitureCondition || formData.alignment) {
+      localStorage.setItem(`door-${formData.doorPinNo}-condition`, JSON.stringify(criticalFields));
+    }
+  }, [formData.leafCondition, formData.thresholdSeal, formData.furnitureCondition, formData.alignment, formData.doorPinNo]);
+
+  // Add this function inside the FireDoorSurveyForm component
+  const handleExportToExcel = async () => {
+    try {
+      setError('Preparing to export surveys...');
+      
+      // Get all surveys from IndexedDB
+      const surveys = await getAllSurveys();
+      console.log('Retrieved surveys for export:', surveys);
+      
+      if (!surveys || surveys.length === 0) {
+        setError('No surveys found to export');
+        return;
+      }
+
+      // Process surveys to ensure all required fields exist
+      const processedSurveys = surveys.map(survey => ({
+        doorPinNo: survey.doorPinNo || '',
+        floor: survey.floor || '',
+        room: survey.room || '',
+        locationOfDoorSet: survey.locationOfDoorSet || '',
+        doorType: survey.doorType || '',
+        doorMaterial: survey.doorMaterial?.type || '',
+        rating: survey.rating || '',
+        thirdPartyCertification: survey.thirdPartyCertification?.type || '',
+        surveyed: survey.surveyed ? 'Yes' : 'No',
+        isFlagged: survey.isFlagged ? 'Yes' : 'No',
+        
+        // Door Configuration
+        doorConfiguration: survey.doorConfiguration?.type || '',
+        fanLight: survey.doorConfiguration?.hasFanLight ? 'Yes' : 'No',
+        sidePanels: survey.doorConfiguration?.hasSidePanels ? 'Yes' : 'No',
+        vpPanel: survey.doorConfiguration?.hasVPPanel ? 'Yes' : 'No',
+        
+        // Measurements
+        leafThickness: survey.leafThickness || '',
+        hingeSideGap: `${survey.leafGap?.hingeSide?.start || ''}-${survey.leafGap?.hingeSide?.end || ''}`,
+        topGap: `${survey.leafGap?.topGap?.start || ''}-${survey.leafGap?.topGap?.end || ''}`,
+        leadingEdge: `${survey.leafGap?.leadingEdge?.start || ''}-${survey.leafGap?.leadingEdge?.end || ''}`,
+        thresholdGap: `${survey.leafGap?.thresholdGap?.start || ''}-${survey.leafGap?.thresholdGap?.end || ''}`,
+        
+        // Condition Assessments
+        frameCondition: survey.frameCondition || 'Not Assessed',
+        frameDefects: Array.isArray(survey.frameDefects) ? survey.frameDefects.join(', ') : '',
+        
+        leafCondition: survey.leafCondition || 'Not Assessed',
+        leafDefects: Array.isArray(survey.leafDefects) ? survey.leafDefects.join(', ') : '',
+        
+        alignment: survey.alignment || 'Not Assessed',
+        alignmentDefects: Array.isArray(survey.alignmentDefects) ? survey.alignmentDefects.join(', ') : '',
+        
+        handlesSufficient: survey.handlesSufficient || 'Not Assessed',
+        handlesDefects: Array.isArray(survey.handlesDefects) ? survey.handlesDefects.join(', ') : '',
+        
+        lockCondition: survey.lockCondition || 'Not Assessed',
+        lockDefects: Array.isArray(survey.lockDefects) ? survey.lockDefects.join(', ') : '',
+        
+        signageSatisfactory: survey.signageSatisfactory || 'Not Assessed',
+        signageDefects: Array.isArray(survey.signageDefects) ? survey.signageDefects.join(', ') : '',
+        
+        hingesCondition: survey.hingesCondition || 'Not Assessed',
+        hingesDefects: Array.isArray(survey.hingesDefects) ? survey.hingesDefects.join(', ') : '',
+        
+        thresholdSeal: survey.thresholdSeal || 'Not Assessed',
+        thresholdDefects: Array.isArray(survey.thresholdDefects) ? survey.thresholdDefects.join(', ') : '',
+        
+        // Fix these fields to use the correct property names
+        sealsCondition: survey.sealsCondition || survey.combinedStripsCondition || 'Not Assessed',
+        sealsDefects: Array.isArray(survey.sealsDefects || survey.combinedStripsDefects) ? 
+          (survey.sealsDefects || survey.combinedStripsDefects).join(', ') : '',
+        
+        closerCondition: survey.closerCondition || survey.selfCloserFunctional || 'Not Assessed',
+        closerDefects: Array.isArray(survey.closerDefects || survey.selfCloserDefects) ? 
+          (survey.closerDefects || survey.selfCloserDefects).join(', ') : '',
+        
+        furnitureCondition: survey.furnitureCondition || 'Not Assessed',
+        furnitureDefects: Array.isArray(survey.furnitureDefects) ? survey.furnitureDefects.join(', ') : '',
+        
+        glazingCondition: survey.glazingCondition || survey.glazingSufficient || 'Not Assessed',
+        glazingDefects: Array.isArray(survey.glazingDefects) ? survey.glazingDefects.join(', ') : '',
+        
+        // Final Assessment
+        overallCondition: survey.overallCondition || '',
+        upgradeReplacement: survey.upgradeReplacement || '',
+        notes: survey.conditionDetails?.notes || ''
+      }));
+
+      console.log('Processed surveys for export:', processedSurveys);
+
+      // Export to Excel
+      await exportToExcel(processedSurveys);
+      setError('Surveys exported successfully!');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setError('');
+      }, 3000);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      setError('Error exporting surveys to Excel: ' + error.message);
+    }
+  };
+
   return (
     <div className="fire-door-survey-form">
       <div className="form-header">
         <div className="header-content">
-          <button className="back-button" onClick={handleBackToMenu}>
-            ← Back to Menu
+          <button className="back-button" onClick={() => navigate('/')}>
+            Back to Menu
                 </button>
-          <h2>Fire Door Survey Form</h2>
+          <button 
+            className="export-excel-button"
+            onClick={handleExportToExcel}
+            title="Export all surveys to Excel"
+          >
+            Export to Excel
+          </button>
         </div>
               </div>
               
@@ -4187,32 +4394,30 @@ const FireDoorSurveyForm = () => {
           </div>
                 </div>
                 <div className="photo-upload-container">
-                      <button
-                        type="button"
-                    className="photo-upload-button"
-                    onClick={() => document.getElementById('leafThicknessPhoto').click()}
-                  >
-                    <span className="upload-icon">📷</span>
-                      </button>
-                  <input
-                    type="file"
-                    id="leafThicknessPhoto"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(e) => handlePhotoUpload('leafThickness', e)}
-                  />
-                  {formData.measurements.leafThicknessPhoto && (
-                    <div className="photo-preview">
-                      <img src={formData.measurements.leafThicknessPhotoUrl} alt="Leaf thickness" />
-                      <button
-                        className="remove-photo"
-                        onClick={() => handleRemovePhoto('leafThickness')}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )}
-                  <span>Upload Photo</span>
+                      <input
+                        type="file"
+                        id="leafThicknessPhoto"
+                        accept="image/*"
+                        onChange={(e) => handlePhotoUpload('leafThickness', e)}
+                        style={{ display: 'none' }}
+                        capture="environment"
+                      />
+                      <label htmlFor="leafThicknessPhoto" className="photo-upload-button">
+                        <span className="upload-icon">📷</span>
+                        <span>Upload Photo</span>
+                      </label>
+                      {formData.measurements?.leafThicknessPhotoUrl && (
+                        <div className="photo-preview">
+                          <img src={formData.measurements.leafThicknessPhotoUrl} alt="Leaf thickness" />
+                          <button
+                            className="remove-photo"
+                            onClick={() => handleRemovePhoto('leafThickness')}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                      <span>Upload Photo</span>
                 </div>
                     </div>
                     </div>
@@ -4529,9 +4734,29 @@ const FireDoorSurveyForm = () => {
                 >?</button>
               </div>
               <div className="options-group">
-                {['Yes', 'No'].map(value => 
-                  renderOption(value, formData.leafCondition === value, () => handleOptionClick('leafCondition', value), `leaf-${value}`)
-                )}
+                {/* Add key attribute to force re-render when state changes */}
+                <div key={`leaf-options-${formData.leafCondition}`} className="options-wrapper">
+                  <button
+                    type="button"
+                    className={`option-button ${formData.leafCondition === 'Yes' ? 'selected' : ''}`}
+                    onClick={() => handleOptionClick('leafCondition', 'Yes')}
+                    data-field="leaf"
+                    data-value="Yes"
+                    data-selected={formData.leafCondition === 'Yes' ? 'true' : 'false'}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-button ${formData.leafCondition === 'No' ? 'selected' : ''}`}
+                    onClick={() => handleOptionClick('leafCondition', 'No')}
+                    data-field="leaf"
+                    data-value="No"
+                    data-selected={formData.leafCondition === 'No' ? 'true' : 'false'}
+                  >
+                    No
+                  </button>
+                </div>
               </div>
               {formData.leafCondition === 'No' && (
                 <div className="defect-input-section">
@@ -4563,7 +4788,7 @@ const FireDoorSurveyForm = () => {
             </div>
 
             {/* Alignment */}
-            <div className="assessment-item">
+            <div className="assessment-item" data-field="alignment">
               <div className="assessment-label">
                 <label><strong>ALIGNMENT</strong></label>
                 <button 
@@ -4574,9 +4799,28 @@ const FireDoorSurveyForm = () => {
                 >?</button>
               </div>
               <div className="options-group">
-                {['Yes', 'No'].map(value => 
-                  renderOption(value, formData.alignment === value, () => handleOptionClick('alignment', value), `alignment-${value}`)
-                )}
+                <div key={`alignment-options-${formData.alignment}`} className="options-wrapper">
+                  <button
+                    type="button"
+                    className={`option-button ${formData.alignment === 'Yes' ? 'selected' : ''}`}
+                    onClick={() => handleOptionClick('alignment', 'Yes')}
+                    data-field="alignment"
+                    data-value="Yes"
+                    data-selected={formData.alignment === 'Yes'}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-button ${formData.alignment === 'No' ? 'selected' : ''}`}
+                    onClick={() => handleOptionClick('alignment', 'No')}
+                    data-field="alignment"
+                    data-value="No"
+                    data-selected={formData.alignment === 'No'}
+                  >
+                    No
+                  </button>
+                </div>
               </div>
               {formData.alignment === 'No' && (
                 <div className="defect-input-section">
@@ -4795,9 +5039,29 @@ const FireDoorSurveyForm = () => {
                 >?</button>
               </div>
               <div className="options-group">
-                {['Yes', 'No'].map(value => 
-                  renderOption(value, formData.thresholdSeal === value, () => handleOptionClick('thresholdSeal', value), `threshold-${value}`)
-                )}
+                {/* Add key attribute to force re-render when state changes */}
+                <div key={`threshold-options-${formData.thresholdSeal}`} className="options-wrapper">
+                  <button
+                    type="button"
+                    className={`option-button ${formData.thresholdSeal === 'Yes' ? 'selected' : ''}`}
+                    onClick={() => handleOptionClick('thresholdSeal', 'Yes')}
+                    data-field="threshold"
+                    data-value="Yes"
+                    data-selected={formData.thresholdSeal === 'Yes' ? 'true' : 'false'}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-button ${formData.thresholdSeal === 'No' ? 'selected' : ''}`}
+                    onClick={() => handleOptionClick('thresholdSeal', 'No')}
+                    data-field="threshold"
+                    data-value="No"
+                    data-selected={formData.thresholdSeal === 'No' ? 'true' : 'false'}
+                  >
+                    No
+                  </button>
+                </div>
               </div>
               {formData.thresholdSeal === 'No' && (
                 <div className="defect-input-section">
@@ -4931,9 +5195,39 @@ const FireDoorSurveyForm = () => {
                 >?</button>
               </div>
               <div className="options-group">
-                {['Yes', 'No', 'N/A'].map(value => 
-                  renderOption(value, formData.furnitureCondition === value, () => handleOptionClick('furnitureCondition', value), `furniture-${value}`)
-                )}
+                {/* Add key attribute to force re-render when state changes */}
+                <div key={`furniture-options-${formData.furnitureCondition}`} className="options-wrapper">
+                  <button
+                    type="button"
+                    className={`option-button ${formData.furnitureCondition === 'Yes' ? 'selected' : ''}`}
+                    onClick={() => handleOptionClick('furnitureCondition', 'Yes')}
+                    data-field="furniture"
+                    data-value="Yes"
+                    data-selected={formData.furnitureCondition === 'Yes' ? 'true' : 'false'}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-button ${formData.furnitureCondition === 'No' ? 'selected' : ''}`}
+                    onClick={() => handleOptionClick('furnitureCondition', 'No')}
+                    data-field="furniture"
+                    data-value="No"
+                    data-selected={formData.furnitureCondition === 'No' ? 'true' : 'false'}
+                  >
+                    No
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-button ${formData.furnitureCondition === 'N/A' ? 'selected' : ''}`}
+                    onClick={() => handleOptionClick('furnitureCondition', 'N/A')}
+                    data-field="furniture"
+                    data-value="N/A"
+                    data-selected={formData.furnitureCondition === 'N/A' ? 'true' : 'false'}
+                  >
+                    N/A
+                  </button>
+                </div>
               </div>
               {formData.furnitureCondition === 'No' && (
                 <div className="defect-input-section">
